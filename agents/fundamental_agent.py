@@ -1,4 +1,4 @@
-from .base_agent import BaseAgent
+from .base_agent import BaseAgent, fmt
 from config import HAIKU_MODEL
 
 
@@ -10,30 +10,39 @@ class FundamentalAgent(BaseAgent):
 
     def analyze(self, data: dict) -> dict:
         f = data.get("fundamentals", {})
+        price = data.get("current_price", 0)
+
         prompt = f"""Analyze the fundamental value of {data.get('ticker', 'this stock')}.
 
-Fundamental Data:
-- Current Price: ${data.get('current_price', 'N/A')}
-- Market Cap: ${f.get('market_cap', 'N/A')}
-- P/E Ratio (TTM): {f.get('pe_ratio', 'N/A')}
-- Forward P/E: {f.get('forward_pe', 'N/A')}
-- PEG Ratio: {f.get('peg_ratio', 'N/A')}
-- P/B Ratio: {f.get('pb_ratio', 'N/A')}
-- P/S Ratio: {f.get('ps_ratio', 'N/A')}
-- EV/EBITDA: {f.get('ev_ebitda', 'N/A')}
-- Revenue Growth (YoY): {f.get('revenue_growth', 'N/A')}%
-- EPS Growth (YoY): {f.get('eps_growth', 'N/A')}%
-- Gross Margin: {f.get('gross_margin', 'N/A')}%
-- Operating Margin: {f.get('operating_margin', 'N/A')}%
-- Net Margin: {f.get('net_margin', 'N/A')}%
-- Debt/Equity: {f.get('debt_equity', 'N/A')}
-- Current Ratio: {f.get('current_ratio', 'N/A')}
-- Free Cash Flow Yield: {f.get('fcf_yield', 'N/A')}%
-- Return on Equity: {f.get('roe', 'N/A')}%
-- Dividend Yield: {f.get('dividend_yield', 'N/A')}%
-- 52-week range: {f.get('52w_low', 'N/A')} - {f.get('52w_high', 'N/A')}
-- Analyst Target Price: ${f.get('target_price', 'N/A')}
+Fundamental Data (pulled from yfinance/Finnhub — use only these real values):
+- Current Price:          ${fmt(price)}
+- Market Cap:             ${fmt(f.get('market_cap'), '.0f')}
+- Beta:                   {fmt(f.get('beta'))}
+- P/E Ratio (TTM):        {fmt(f.get('pe_ratio'))}
+- Forward P/E:            {fmt(f.get('forward_pe'))}
+- PEG Ratio:              {fmt(f.get('peg_ratio'))}
+- P/B Ratio:              {fmt(f.get('pb_ratio'))}
+- P/S Ratio:              {fmt(f.get('ps_ratio'))}
+- EV/EBITDA:              {fmt(f.get('ev_ebitda'))}
+- EPS (TTM):              ${fmt(f.get('eps_ttm'))}
+- Revenue Growth (YoY):   {fmt(f.get('revenue_growth'))}%
+- EPS Growth (YoY):       {fmt(f.get('eps_growth'))}%
+- Gross Margin:           {fmt(f.get('gross_margin'))}%
+- Operating Margin:       {fmt(f.get('operating_margin'))}%
+- Net Margin:             {fmt(f.get('net_margin'))}%
+- Debt/Equity:            {fmt(f.get('debt_equity'))}
+- Current Ratio:          {fmt(f.get('current_ratio'))}
+- Free Cash Flow Yield:   {fmt(f.get('fcf_yield'))}%
+- Return on Equity:       {fmt(f.get('roe'))}%
+- Dividend Yield:         {fmt(f.get('dividend_yield'))}%
+- 52-week High:           ${fmt(f.get('52w_high'))}
+- 52-week Low:            ${fmt(f.get('52w_low'))}
+- % from 52w High:        {fmt(f.get('pct_from_52w_high'))}%
+- Analyst Target Price:   ${fmt(f.get('target_price'))}
+- Analyst Consensus:      {f.get('analyst_consensus', 'N/A')}
+- Short Interest:         {fmt(f.get('short_interest'))}%
 
+Use ONLY the real values above. If a value is N/A, treat it as unavailable — do not estimate.
 Respond with JSON only:
 {{
   "signal": "BULLISH" | "BEARISH" | "NEUTRAL",
@@ -41,11 +50,11 @@ Respond with JSON only:
   "valuation": "overvalued" | "fairly_valued" | "undervalued",
   "financial_health": "strong" | "moderate" | "weak",
   "growth_quality": "high" | "medium" | "low",
-  "fair_value_estimate": <number or null>,
-  "upside_to_target": <percentage or null>,
-  "key_strengths": ["str1"],
-  "key_weaknesses": ["wk1"],
-  "reasoning": "brief explanation"
+  "fair_value_estimate": <number_or_null>,
+  "upside_to_target": <percentage_or_null>,
+  "key_strengths": ["str1", "str2"],
+  "key_weaknesses": ["wk1", "wk2"],
+  "reasoning": "brief explanation citing specific real values"
 }}"""
         raw = self._call(prompt)
         result = self._parse_json(raw)

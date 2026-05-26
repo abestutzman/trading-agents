@@ -4,7 +4,6 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime
 import time
-import json
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -14,96 +13,137 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── CSS ───────────────────────────────────────────────────────────────────────
+# ── Design system ─────────────────────────────────────────────────────────────
+# Colors
+# --navy:   #0f172a   (darkest body text)
+# --slate:  #334155   (secondary text)
+# --muted:  #64748b   (labels, hints)
+# --green:  #15803d   (bullish / LONG)
+# --red:    #b91c1c   (bearish / SHORT)
+# --amber:  #b45309   (neutral / HOLD)
+# --bg:     #f1f5f9   (page background)
+# --card:   #ffffff   (card background)
+
 st.markdown("""
 <style>
-  /* Base */
-  .stApp { background: #f0f2f6; }
-  section[data-testid="stSidebar"] { background: #1a1f2e; }
-  section[data-testid="stSidebar"] * { color: #e2e8f0 !important; }
-  section[data-testid="stSidebar"] .stRadio label { color: #e2e8f0 !important; }
+  /* ── Page background ── */
+  .stApp { background: #f1f5f9; }
 
-  /* White cards */
+  /* ── Sidebar ── */
+  section[data-testid="stSidebar"] { background: #0f172a; }
+  section[data-testid="stSidebar"] .stMarkdown p,
+  section[data-testid="stSidebar"] .stMarkdown h1,
+  section[data-testid="stSidebar"] .stMarkdown h2,
+  section[data-testid="stSidebar"] .stMarkdown h3,
+  section[data-testid="stSidebar"] label,
+  section[data-testid="stSidebar"] .stRadio label span { color: #e2e8f0 !important; }
+
+  /* ── White cards ── */
   .card {
-    background: white;
+    background: #ffffff;
     border-radius: 12px;
     padding: 20px 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
     margin-bottom: 16px;
   }
   .card-title {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 700;
     color: #64748b;
     text-transform: uppercase;
-    letter-spacing: .05em;
-    margin-bottom: 8px;
+    letter-spacing: .08em;
+    margin-bottom: 6px;
   }
   .card-value {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 700;
-    color: #1e293b;
+    color: #0f172a;
+    line-height: 1.2;
   }
 
-  /* Badges */
-  .badge-long   { background:#dcfce7; color:#166534; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:700; }
-  .badge-short  { background:#fee2e2; color:#991b1b; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:700; }
-  .badge-hold   { background:#fef9c3; color:#854d0e; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:700; }
-  .badge-bull   { background:#dcfce7; color:#166534; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:600; }
-  .badge-bear   { background:#fee2e2; color:#991b1b; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:600; }
-  .badge-neutral{ background:#f1f5f9; color:#475569; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:600; }
+  /* ── Badges ── */
+  .b-long    { display:inline-block; background:#dcfce7; color:#15803d; border-radius:6px;
+               padding:2px 10px; font-size:12px; font-weight:700; }
+  .b-short   { display:inline-block; background:#fee2e2; color:#b91c1c; border-radius:6px;
+               padding:2px 10px; font-size:12px; font-weight:700; }
+  .b-hold    { display:inline-block; background:#fef3c7; color:#b45309; border-radius:6px;
+               padding:2px 10px; font-size:12px; font-weight:700; }
+  .b-bull    { display:inline-block; background:#dcfce7; color:#15803d; border-radius:6px;
+               padding:2px 9px; font-size:11px; font-weight:700; }
+  .b-bear    { display:inline-block; background:#fee2e2; color:#b91c1c; border-radius:6px;
+               padding:2px 9px; font-size:11px; font-weight:700; }
+  .b-neutral { display:inline-block; background:#f1f5f9; color:#334155; border-radius:6px;
+               padding:2px 9px; font-size:11px; font-weight:700; }
 
-  /* Agent cards */
+  /* ── Agent cards ── */
   .agent-card {
-    background: white;
+    background: #ffffff;
     border-radius: 10px;
     padding: 14px 18px;
     box-shadow: 0 1px 3px rgba(0,0,0,.06);
     margin-bottom: 10px;
     border-left: 4px solid #e2e8f0;
   }
-  .agent-bull { border-left-color: #22c55e !important; }
-  .agent-bear { border-left-color: #ef4444 !important; }
+  .agent-bull    { border-left-color: #22c55e !important; }
+  .agent-bear    { border-left-color: #ef4444 !important; }
   .agent-neutral { border-left-color: #94a3b8 !important; }
-  .agent-name { font-size:13px; font-weight:700; color:#1e293b; }
-  .agent-signal { font-size:12px; color:#64748b; margin-top:2px; }
-  .agent-reasoning { font-size:12px; color:#475569; margin-top:6px; line-height:1.5; }
+  .agent-name    { font-size: 13px; font-weight: 700; color: #0f172a; }
+  .agent-reason  { font-size: 12px; color: #334155; margin-top: 6px; line-height: 1.55; }
+  hr.div { border: none; border-top: 1px solid #f1f5f9; margin: 10px 0; }
 
-  /* Divider */
-  hr.card-divider { border: none; border-top: 1px solid #f1f5f9; margin: 12px 0; }
+  /* ── Score bar ── */
+  .score-wrap { margin: 6px 0 2px; }
+  .score-track { background: #e2e8f0; border-radius: 4px; height: 8px; position: relative; }
+  .score-fill  { border-radius: 4px; height: 8px; transition: width .3s; }
+  .score-label { font-size: 11px; color: #64748b; margin-top: 3px; }
 
-  /* Metric row */
-  .metric-row { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
-  .metric-item { flex:1; min-width:120px; background:white; border-radius:10px;
-                 padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
-  .metric-label { font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; }
-  .metric-val   { font-size:22px; font-weight:700; color:#1e293b; }
-  .metric-sub   { font-size:11px; color:#64748b; margin-top:2px; }
+  /* ── Screener table ── */
+  .stbl { width: 100%; border-collapse: collapse; }
+  .stbl th { background: #f8fafc; color: #64748b; font-size: 11px; font-weight: 700;
+             text-transform: uppercase; letter-spacing: .05em;
+             padding: 10px 14px; text-align: left; border-bottom: 2px solid #e2e8f0; }
+  .stbl td { padding: 10px 14px; font-size: 13px; color: #0f172a;
+             border-bottom: 1px solid #f1f5f9; }
+  .stbl tr:hover td { background: #f8fafc; }
 
-  /* Table */
-  .screener-table { width:100%; border-collapse:collapse; }
-  .screener-table th { background:#f8fafc; color:#64748b; font-size:12px; font-weight:600;
-                       text-transform:uppercase; padding:10px 14px; text-align:left; }
-  .screener-table td { padding:10px 14px; font-size:13px; border-bottom:1px solid #f1f5f9; }
-  .screener-table tr:hover td { background:#fafafa; }
-
-  /* Trade ticket */
-  .trade-ticket {
-    background: white; border-radius:12px; padding:24px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.1); border:2px solid #e2e8f0;
+  /* ── Trade ticket ── */
+  .ticket {
+    background: #ffffff; border-radius: 12px; padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08); border: 2px solid #e2e8f0;
   }
+  .ticket-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 14px; }
+  .ticket-label { font-size: 11px; color: #64748b; font-weight: 700;
+                  text-transform: uppercase; letter-spacing: .05em; }
+  .ticket-val   { font-size: 22px; font-weight: 700; color: #0f172a; margin-top: 2px; }
+
+  /* ── No-opportunity banner ── */
+  .sit-out {
+    background: #fffbeb; border: 2px solid #fcd34d; border-radius: 12px;
+    padding: 28px 32px; text-align: center; margin: 24px 0;
+  }
+  .sit-out h2 { font-size: 22px; color: #92400e; margin: 0 0 8px; }
+  .sit-out p  { font-size: 14px; color: #78350f; margin: 0; }
+
+  /* ── Session summary ── */
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .summary-cell { background: #ffffff; border-radius: 10px; padding: 16px 20px;
+                  box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .summary-label { font-size: 11px; color: #64748b; font-weight: 700;
+                   text-transform: uppercase; letter-spacing: .05em; }
+  .summary-val   { font-size: 26px; font-weight: 700; color: #0f172a; margin-top: 4px; }
+  .summary-sub   { font-size: 11px; color: #64748b; margin-top: 2px; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Initialise ────────────────────────────────────────────────────────────────
+# ── Bootstrap ─────────────────────────────────────────────────────────────────
 import database as db
 db.init_db()
 
 from config import (
-    SP50_TICKERS, SECTOR_ETFS, DEFAULT_MAX_POSITION_PCT,
-    DEFAULT_DAILY_LOSS_LIMIT, DEFAULT_MAX_POSITIONS,
-    DEFAULT_COOLDOWN_MINUTES, DEFAULT_STOP_LOSS_PCT, DEFAULT_TAKE_PROFIT_PCT,
-    ANTHROPIC_API_KEY,
+    SP50_TICKERS, ANTHROPIC_API_KEY, POLYGON_API_KEY,
+    DEFAULT_MAX_POSITION_PCT, DEFAULT_DAILY_LOSS_LIMIT,
+    DEFAULT_MAX_POSITIONS, DEFAULT_COOLDOWN_MINUTES,
+    DEFAULT_STOP_LOSS_PCT, DEFAULT_TAKE_PROFIT_PCT,
 )
 from utils.data_fetcher import DataFetcher
 from utils.portfolio import PortfolioManager
@@ -115,7 +155,7 @@ from agents import (
 fetcher   = DataFetcher()
 portfolio = PortfolioManager()
 
-# Session defaults
+
 def _sdef(key, val):
     if key not in st.session_state:
         st.session_state[key] = val
@@ -128,137 +168,100 @@ _sdef("risk_config", {
     "stop_loss_pct":     DEFAULT_STOP_LOSS_PCT,
     "take_profit_pct":   DEFAULT_TAKE_PROFIT_PCT,
 })
-_sdef("screener_results", [])
-_sdef("analysis_result", None)
+_sdef("screener_output",  None)   # dict returned by Screener.run()
+_sdef("analysis_result",  None)   # full 9-agent result for selected ticker
 _sdef("autonomous_running", False)
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
-def signal_badge(signal: str) -> str:
-    s = (signal or "").upper()
-    if s in ("BULLISH", "LONG"):
-        return '<span class="badge-bull">BULLISH</span>'
-    if s in ("BEARISH", "SHORT"):
-        return '<span class="badge-bear">BEARISH</span>'
-    return '<span class="badge-neutral">NEUTRAL</span>'
+# ── HTML helpers ──────────────────────────────────────────────────────────────
+
+def badge_action(a: str) -> str:
+    a = (a or "").upper()
+    if a == "LONG":  return '<span class="b-long">LONG</span>'
+    if a == "SHORT": return '<span class="b-short">SHORT</span>'
+    return '<span class="b-hold">HOLD</span>'
 
 
-def action_badge(action: str) -> str:
-    a = (action or "").upper()
-    if a == "LONG":  return '<span class="badge-long">LONG</span>'
-    if a == "SHORT": return '<span class="badge-short">SHORT</span>'
-    return '<span class="badge-hold">HOLD</span>'
+def badge_signal(s: str) -> str:
+    s = (s or "").upper()
+    if "BULL" in s or s == "LONG":   return '<span class="b-bull">BULLISH</span>'
+    if "BEAR" in s or s == "SHORT":  return '<span class="b-bear">BEARISH</span>'
+    return '<span class="b-neutral">NEUTRAL</span>'
+
+
+def score_bar(score: float, action: str) -> str:
+    pct   = max(0, min(100, score))
+    color = "#15803d" if action == "LONG" else "#b91c1c" if action == "SHORT" else "#b45309"
+    return (
+        f'<div class="score-wrap">'
+        f'<div class="score-track">'
+        f'<div class="score-fill" style="width:{pct}%;background:{color};"></div>'
+        f'</div>'
+        f'<span class="score-label">Score: {score:.1f}/100</span>'
+        f'</div>'
+    )
 
 
 def conf_bar(confidence) -> str:
-    pct = int((confidence or 0) * 100)
-    color = "#22c55e" if pct >= 65 else "#f59e0b" if pct >= 45 else "#ef4444"
+    pct   = int((confidence or 0) * 100)
+    color = "#15803d" if pct >= 65 else "#b45309" if pct >= 45 else "#b91c1c"
     return (
         f'<div style="background:#f1f5f9;border-radius:4px;height:6px;margin-top:4px;">'
-        f'<div style="width:{pct}%;background:{color};height:6px;border-radius:4px;"></div></div>'
+        f'<div style="width:{pct}%;background:{color};height:6px;border-radius:4px;"></div>'
+        f'</div>'
         f'<span style="font-size:11px;color:#64748b;">{pct}% confidence</span>'
     )
 
 
-def run_full_analysis(ticker: str) -> dict:
-    """Run the complete 9-agent pipeline for a ticker."""
-    rc = st.session_state.risk_config
+# ── 9-agent full pipeline ─────────────────────────────────────────────────────
 
-    with st.spinner(f"Fetching data for {ticker}..."):
+def run_full_analysis(ticker: str) -> dict:
+    rc = st.session_state.risk_config
+    with st.spinner(f"Fetching data for {ticker}…"):
         data = fetcher.get_full_data(ticker)
 
-    port_summary = portfolio.get_portfolio_summary()
-    port_summary["existing_exposure_pct"] = portfolio.get_ticker_exposure(ticker, port_summary)
+    port  = portfolio.get_portfolio_summary()
+    port["existing_exposure_pct"] = portfolio.get_ticker_exposure(ticker, port)
     daily_pnl = db.get_daily_pnl()
-    acc_val   = port_summary.get("account_value", 100000)
-    port_summary["daily_pnl_pct"] = daily_pnl / acc_val * 100 if acc_val else 0
+    acc   = port.get("account_value", 100000)
+    port["daily_pnl_pct"] = daily_pnl / acc * 100 if acc else 0
 
-    cooldown_elapsed = db.get_cooldown_minutes(ticker)
-    cooldown_remaining = None
-    if cooldown_elapsed is not None and cooldown_elapsed < rc["cooldown_minutes"]:
-        cooldown_remaining = rc["cooldown_minutes"] - cooldown_elapsed
+    elapsed = db.get_cooldown_minutes(ticker)
+    cooldown_rem = None
+    if elapsed is not None and elapsed < rc["cooldown_minutes"]:
+        cooldown_rem = rc["cooldown_minutes"] - elapsed
 
-    data["portfolio"]          = port_summary
-    data["risk_config"]        = rc
-    data["cooldown_remaining"] = cooldown_remaining
+    data.update({"portfolio": port, "risk_config": rc, "cooldown_remaining": cooldown_rem})
 
-    agents_run = []
+    steps = [
+        ("Macro Agent — scanning market environment…",        MacroAgent,        "macro_analysis"),
+        ("Fundamental Agent — evaluating financials…",        FundamentalAgent,  "fundamental_analysis"),
+        ("Technical Agent — reading the charts…",             TechnicalAgent,    "technical_analysis"),
+        ("Sentiment Agent — analysing live headlines…",       SentimentAgent,    "sentiment_analysis"),
+        ("Bull Researcher — building long case…",             BullResearcher,    "bull_analysis"),
+        ("Bear Researcher — building short case…",            BearResearcher,    "bear_analysis"),
+        ("Risk Manager — sizing position (Opus)…",            RiskManager,       "risk_analysis"),
+        ("Head Trader — final decision (Opus)…",              HeadTrader,        "trader_analysis"),
+        ("Hedge Agent — checking portfolio balance (Opus)…",  HedgeAgent,        "hedge_analysis"),
+    ]
 
-    with st.spinner("Macro Agent analysing market environment..."):
-        macro_r = MacroAgent().analyze(data)
-        data["macro_analysis"] = macro_r
-        agents_run.append(macro_r)
-        db.log_decision(ticker, "Macro Agent", macro_r.get("signal"),
-                        macro_r.get("confidence"), macro_r.get("reasoning"), macro_r)
+    for label, AgentCls, key in steps:
+        with st.spinner(label):
+            r = AgentCls().analyze(data)
+            data[key] = r
+            db.log_decision(ticker, r.get("agent", key), r.get("signal") or r.get("action"),
+                            r.get("confidence") or r.get("risk_score"),
+                            r.get("reasoning") or r.get("bull_thesis") or r.get("bear_thesis"), r)
 
-    with st.spinner("Fundamental Agent evaluating financials..."):
-        fund_r = FundamentalAgent().analyze(data)
-        data["fundamental_analysis"] = fund_r
-        agents_run.append(fund_r)
-        db.log_decision(ticker, "Fundamental Agent", fund_r.get("signal"),
-                        fund_r.get("confidence"), fund_r.get("reasoning"), fund_r)
-
-    with st.spinner("Technical Agent reading the charts..."):
-        tech_r = TechnicalAgent().analyze(data)
-        data["technical_analysis"] = tech_r
-        agents_run.append(tech_r)
-        db.log_decision(ticker, "Technical Agent", tech_r.get("signal"),
-                        tech_r.get("confidence"), tech_r.get("reasoning"), tech_r)
-
-    with st.spinner("Sentiment Agent scanning news..."):
-        sent_r = SentimentAgent().analyze(data)
-        data["sentiment_analysis"] = sent_r
-        agents_run.append(sent_r)
-        db.log_decision(ticker, "Sentiment Agent", sent_r.get("signal"),
-                        sent_r.get("confidence"), sent_r.get("reasoning"), sent_r)
-
-    with st.spinner("Bull Researcher building long case..."):
-        bull_r = BullResearcher().analyze(data)
-        data["bull_analysis"] = bull_r
-        agents_run.append(bull_r)
-        db.log_decision(ticker, "Bull Researcher", "BULLISH",
-                        bull_r.get("confidence"), bull_r.get("bull_thesis"), bull_r)
-
-    with st.spinner("Bear Researcher building short case..."):
-        bear_r = BearResearcher().analyze(data)
-        data["bear_analysis"] = bear_r
-        agents_run.append(bear_r)
-        db.log_decision(ticker, "Bear Researcher", "BEARISH",
-                        bear_r.get("confidence"), bear_r.get("bear_thesis"), bear_r)
-
-    with st.spinner("Risk Manager evaluating position risk (Opus)..."):
-        risk_r = RiskManager().analyze(data)
-        data["risk_analysis"] = risk_r
-        agents_run.append(risk_r)
-        db.log_decision(ticker, "Risk Manager",
-                        "APPROVED" if risk_r.get("approved") else "VETOED",
-                        risk_r.get("risk_score"), risk_r.get("reasoning"), risk_r)
-
-    with st.spinner("Head Trader making final decision (Opus)..."):
-        trader_r = HeadTrader().analyze(data)
-        data["trader_analysis"] = trader_r
-        agents_run.append(trader_r)
-        db.log_decision(ticker, "Head Trader", trader_r.get("action"),
-                        trader_r.get("confidence"), trader_r.get("reasoning"), trader_r)
-
-    with st.spinner("Hedge Agent checking portfolio balance (Opus)..."):
-        hedge_r = HedgeAgent().analyze(data)
-        data["hedge_analysis"] = hedge_r
-        agents_run.append(hedge_r)
-        db.log_decision(ticker, "Hedge Agent",
-                        "HEDGE" if hedge_r.get("hedge_needed") else "BALANCED",
-                        None, hedge_r.get("reasoning"), hedge_r)
-
-    data["agents_run"] = agents_run
     return data
 
 
-def execute_trade(ticker: str, trader_result: dict) -> dict:
-    action     = trader_result.get("action", "HOLD")
-    entry      = trader_result.get("entry_price", 0)
-    stop       = trader_result.get("stop_loss")
-    target     = trader_result.get("take_profit")
-    qty        = int(trader_result.get("quantity", 1))
+def execute_trade(ticker: str, trader_r: dict) -> dict:
+    action = trader_r.get("action", "HOLD")
+    stop   = trader_r.get("stop_loss")
+    target = trader_r.get("take_profit")
+    qty    = int(trader_r.get("quantity", 1))
+    entry  = trader_r.get("entry_price", 0)
 
     if action == "HOLD" or not stop or not target or qty <= 0:
         return {"status": "skipped", "reason": "HOLD or missing parameters"}
@@ -267,40 +270,229 @@ def execute_trade(ticker: str, trader_result: dict) -> dict:
     db.log_trade(ticker, action, qty, entry, stop, target,
                  status=order.get("status", "error"),
                  alpaca_order_id=order.get("order_id"),
-                 notes=trader_result.get("reasoning", "")[:500])
+                 notes=(trader_r.get("reasoning") or "")[:500])
     if order.get("status") not in ("error",):
         db.set_cooldown(ticker)
     return order
 
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 📈 AI Trading Agents")
     st.markdown("---")
-
     page = st.radio(
-        "Navigation",
-        ["Manual Analysis", "Screener", "Semi-Auto", "Autonomous",
-         "Watchlist", "Trade Journal", "Settings"],
+        "nav", ["Manual Analysis", "Screener", "Semi-Auto", "Autonomous",
+                "Watchlist", "Trade Journal", "Settings"],
         label_visibility="collapsed",
     )
-
     st.markdown("---")
-    acc = portfolio.get_account()
-    connected = acc.get("connected", False)
-    status_dot = "🟢" if connected else "🔴"
-    st.markdown(f"{status_dot} Alpaca {'Connected' if connected else 'Not Connected'}")
+    acc_info  = portfolio.get_account()
+    connected = acc_info.get("connected", False)
+    dot = "🟢" if connected else "🔴"
+    st.markdown(f"{dot} Alpaca {'Connected' if connected else 'Disconnected'}")
     if connected:
-        st.markdown(f"**Portfolio:** ${acc.get('account_value',0):,.0f}")
-        st.markdown(f"**Buying Power:** ${acc.get('buying_power',0):,.0f}")
-
+        st.markdown(f"**Portfolio:** ${acc_info.get('account_value',0):,.0f}")
+        st.markdown(f"**Buying Power:** ${acc_info.get('buying_power',0):,.0f}")
     if not ANTHROPIC_API_KEY:
-        st.warning("⚠️ No ANTHROPIC_API_KEY found in .env")
-
+        st.warning("⚠️ ANTHROPIC_API_KEY missing")
+    if not POLYGON_API_KEY:
+        st.info("💡 Add POLYGON_API_KEY for real-time TA data")
     st.markdown("---")
-    daily_pnl = db.get_daily_pnl()
-    pnl_color = "green" if daily_pnl >= 0 else "red"
-    st.markdown(f"**Today's P&L:** :{pnl_color}[${daily_pnl:+,.2f}]")
+    dpnl = db.get_daily_pnl()
+    color = "green" if dpnl >= 0 else "red"
+    st.markdown(f"**Today's P&L:** :{color}[${dpnl:+,.2f}]")
+
+
+def _render_analysis_result(result: dict):
+    ticker   = result.get("ticker", "")
+    price    = result.get("current_price", 0)
+    trader_r = result.get("trader_analysis", {})
+    risk_r   = result.get("risk_analysis", {})
+    hedge_r  = result.get("hedge_analysis", {})
+    action   = trader_r.get("action", "HOLD")
+
+    # Header metrics
+    c1, c2, c3, c4, c5 = st.columns(5)
+    for col, title, val in [
+        (c1, "Ticker",    f'<div class="card-value">{ticker}</div>'),
+        (c2, "Price",     f'<div class="card-value">${price:,.2f}</div>'),
+        (c3, "Decision",  f'<div style="margin-top:4px;">{badge_action(action)}</div>'),
+        (c4, "Confidence",f'<div class="card-value">{int((trader_r.get("confidence",0))*100)}%</div>'),
+        (c5, "Risk Gate", f'<div class="card-value" style="font-size:20px;">{"✅ Approved" if risk_r.get("approved") else "❌ Vetoed"}</div>'),
+    ]:
+        with col:
+            st.markdown(
+                f'<div class="card"><div class="card-title">{title}</div>{val}</div>',
+                unsafe_allow_html=True,
+            )
+
+    # 4 Haiku agent signals
+    st.markdown("### Agent Signals")
+    cols = st.columns(4)
+    for i, key in enumerate(["macro_analysis","fundamental_analysis",
+                              "technical_analysis","sentiment_analysis"]):
+        r   = result.get(key, {})
+        sig = r.get("signal", "NEUTRAL")
+        cls = "agent-bull" if "BULL" in sig else "agent-bear" if "BEAR" in sig else "agent-neutral"
+        with cols[i]:
+            st.markdown(
+                f'<div class="agent-card {cls}">'
+                f'<div class="agent-name">{r.get("agent","")}</div>'
+                f'<div style="margin-top:4px;">{badge_signal(sig)}</div>'
+                f'{conf_bar(r.get("confidence",0))}'
+                f'<hr class="div">'
+                f'<div class="agent-reason">{(r.get("reasoning","") or "")[:220]}</div>'
+                f'</div>', unsafe_allow_html=True)
+
+    # Bull vs Bear
+    st.markdown("### Bull vs Bear Debate")
+    bull_r = result.get("bull_analysis", {})
+    bear_r = result.get("bear_analysis", {})
+    cb, ca = st.columns(2)
+    with cb:
+        cats = "".join(f"<li style='color:#334155;'>{c}</li>"
+                       for c in (bull_r.get("key_catalysts") or [])[:3])
+        st.markdown(
+            f'<div class="agent-card agent-bull">'
+            f'<div class="agent-name">🐂 Bull Researcher</div>'
+            f'{conf_bar(bull_r.get("confidence",0))}'
+            f'<hr class="div">'
+            f'<div class="agent-reason"><b>Thesis:</b> {bull_r.get("bull_thesis","")}</div>'
+            f'<div class="agent-reason" style="margin-top:6px;"><b>Upside target:</b> '
+            f'${bull_r.get("upside_target","?")}</div>'
+            f'<div class="agent-reason"><b>Catalysts:</b><ul style="margin:4px 0 0 16px;">{cats}</ul></div>'
+            f'</div>', unsafe_allow_html=True)
+    with ca:
+        risks = "".join(f"<li style='color:#334155;'>{r}</li>"
+                        for r in (bear_r.get("key_risks") or [])[:3])
+        st.markdown(
+            f'<div class="agent-card agent-bear">'
+            f'<div class="agent-name">🐻 Bear Researcher</div>'
+            f'{conf_bar(bear_r.get("confidence",0))}'
+            f'<hr class="div">'
+            f'<div class="agent-reason"><b>Thesis:</b> {bear_r.get("bear_thesis","")}</div>'
+            f'<div class="agent-reason" style="margin-top:6px;"><b>Downside target:</b> '
+            f'${bear_r.get("downside_target","?")}</div>'
+            f'<div class="agent-reason"><b>Risks:</b><ul style="margin:4px 0 0 16px;">{risks}</ul></div>'
+            f'</div>', unsafe_allow_html=True)
+
+    # Trade ticket
+    st.markdown("### Trade Ticket")
+    stop   = trader_r.get("stop_loss")
+    target = trader_r.get("take_profit")
+    qty    = trader_r.get("quantity", 0)
+    t1, t2 = st.columns([2, 1])
+    with t1:
+        stop_disp   = f"${stop:.2f}"   if stop   else "N/A"
+        target_disp = f"${target:.2f}" if target else "N/A"
+        st.markdown(
+            f'<div class="ticket">'
+            f'<div style="font-size:17px;font-weight:700;color:#0f172a;">'
+            f'{badge_action(action)} {ticker} &nbsp;—&nbsp; {trader_r.get("time_horizon","?")}</div>'
+            f'<div class="ticket-row">'
+            f'<div><div class="ticket-label">Entry</div>'
+            f'<div class="ticket-val">${trader_r.get("entry_price",price):,.2f}</div></div>'
+            f'<div><div class="ticket-label">Stop Loss</div>'
+            f'<div class="ticket-val" style="color:#b91c1c;">{stop_disp}</div></div>'
+            f'<div><div class="ticket-label">Take Profit</div>'
+            f'<div class="ticket-val" style="color:#15803d;">{target_disp}</div></div>'
+            f'</div>'
+            f'<div style="margin-top:14px;font-size:13px;color:#334155;">'
+            f'<b>Qty:</b> {qty} shares &nbsp;·&nbsp; '
+            f'<b>R:R:</b> {risk_r.get("risk_reward_ratio","?")} &nbsp;·&nbsp;'
+            f'<b>Max loss:</b> ${risk_r.get("max_loss_dollars","?")}'
+            f'</div>'
+            f'<div style="margin-top:12px;font-size:13px;color:#334155;line-height:1.55;">'
+            f'{(trader_r.get("reasoning","") or "")[:450]}'
+            f'</div></div>',
+            unsafe_allow_html=True,
+        )
+    with t2:
+        if action != "HOLD" and risk_r.get("approved"):
+            if st.button(f"Execute {action} Trade", type="primary", use_container_width=True):
+                with st.spinner("Submitting bracket order…"):
+                    order = execute_trade(ticker, trader_r)
+                if order.get("status") == "error":
+                    st.error(f"Order failed: {order.get('error')}")
+                else:
+                    st.success(f"✅ Submitted! Order ID: {order.get('order_id','?')}")
+        elif not risk_r.get("approved"):
+            st.error(f"Vetoed: {risk_r.get('veto_reason') or 'risk controls'}")
+        else:
+            st.info("No trade recommended (HOLD)")
+        if action != "HOLD":
+            if st.button("+ Watchlist", use_container_width=True):
+                db.add_to_watchlist(ticker)
+                st.success(f"{ticker} added")
+
+    # Hedge alert
+    if hedge_r.get("hedge_needed"):
+        urgency = hedge_r.get("urgency", "LOW")
+        uc = {"HIGH": "#b91c1c", "MEDIUM": "#b45309", "LOW": "#15803d"}.get(urgency, "#64748b")
+        recs_html = "".join(
+            f'<div style="padding:7px 0;border-bottom:1px solid #f1f5f9;color:#334155;">'
+            f'{badge_action(r.get("action","?"))} <b style="color:#0f172a;">{r.get("instrument","?")}</b>'
+            f' ({r.get("allocation_pct","?")}% alloc) — {r.get("rationale","")}</div>'
+            for r in hedge_r.get("recommendations", [])
+        )
+        st.markdown("### Hedge Agent Alert")
+        st.markdown(
+            f'<div class="card" style="border-left:4px solid {uc};">'
+            f'<div class="card-title">Hedge Needed — Urgency: '
+            f'<span style="color:{uc};">{urgency}</span></div>'
+            f'<div style="font-size:13px;color:#334155;margin-bottom:10px;">'
+            f'{hedge_r.get("reasoning","")}</div>'
+            f'{recs_html}</div>', unsafe_allow_html=True)
+
+    # Price chart
+    st.markdown("### Price Chart")
+    df = fetcher.get_price_history(ticker, "6mo")
+    if not df.empty:
+        tech = result.get("technicals", {})
+        fig  = go.Figure()
+        fig.add_trace(go.Candlestick(
+            x=df.index, open=df["Open"], high=df["High"],
+            low=df["Low"], close=df["Close"], name="Price",
+            increasing_line_color="#15803d", decreasing_line_color="#b91c1c",
+        ))
+        for label, key, color in [("SMA 50","sma_50","#2563eb"),("SMA 200","sma_200","#d97706")]:
+            if tech.get(key):
+                fig.add_hline(y=tech[key], line_dash="dash", line_color=color,
+                              annotation_text=label, annotation_position="right",
+                              annotation_font_color=color)
+        for key, label in [("bb_upper","BB Upper"),("bb_lower","BB Lower")]:
+            if tech.get(key):
+                fig.add_hline(y=tech[key], line_dash="dot", line_color="#94a3b8",
+                              annotation_text=label, annotation_font_color="#64748b")
+        if stop:
+            fig.add_hline(y=stop, line_color="#b91c1c",
+                          annotation_text=f"Stop ${stop:.2f}", annotation_font_color="#b91c1c")
+        if target:
+            fig.add_hline(y=target, line_color="#15803d",
+                          annotation_text=f"Target ${target:.2f}", annotation_font_color="#15803d")
+        fig.update_layout(
+            height=450, paper_bgcolor="white", plot_bgcolor="white",
+            xaxis_rangeslider_visible=False,
+            margin=dict(l=10, r=80, t=20, b=10),
+            xaxis=dict(gridcolor="#f1f5f9", color="#334155"),
+            yaxis=dict(gridcolor="#f1f5f9", color="#334155"),
+            font=dict(color="#334155"),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    # News headlines fed to Sentiment Agent
+    news = result.get("news", [])
+    if news:
+        st.markdown("### Headlines (fed to Sentiment Agent)")
+        for n in news[:5]:
+            st.markdown(
+                f'<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">'
+                f'<span style="font-size:11px;color:#64748b;font-weight:600;">'
+                f'{n.get("source","?")} &nbsp;·&nbsp; {n.get("datetime","")[:10]}</span><br>'
+                f'<span style="font-size:13px;color:#0f172a;">{n.get("headline","")}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -308,212 +500,22 @@ with st.sidebar:
 # ══════════════════════════════════════════════════════════════════════════════
 if page == "Manual Analysis":
     st.markdown("# Manual Analysis")
-    st.markdown('<p style="color:#64748b;">Run all 9 agents on a ticker and get a trade recommendation.</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color:#64748b;">Enter any ticker to run all 9 agents and get a full trade recommendation.</p>', unsafe_allow_html=True)
 
     col1, col2 = st.columns([3, 1])
     with col1:
-        ticker_input = st.text_input("Ticker Symbol", placeholder="e.g. AAPL, MSFT, NVDA",
+        ticker_input = st.text_input("Ticker Symbol", placeholder="AAPL, MSFT, NVDA…",
                                       key="manual_ticker").upper().strip()
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
         run_btn = st.button("Run Analysis", type="primary", use_container_width=True)
 
     if run_btn and ticker_input:
-        result = run_full_analysis(ticker_input)
-        st.session_state.analysis_result = result
+        st.session_state.analysis_result = run_full_analysis(ticker_input)
 
     result = st.session_state.get("analysis_result")
     if result:
-        ticker   = result.get("ticker", "")
-        price    = result.get("current_price", 0)
-        trader_r = result.get("trader_analysis", {})
-        risk_r   = result.get("risk_analysis", {})
-        hedge_r  = result.get("hedge_analysis", {})
-        action   = trader_r.get("action", "HOLD")
-
-        # ── Header card ──
-        col_a, col_b, col_c, col_d, col_e = st.columns(5)
-        with col_a:
-            st.markdown(f'<div class="card"><div class="card-title">Ticker</div>'
-                        f'<div class="card-value">{ticker}</div></div>', unsafe_allow_html=True)
-        with col_b:
-            st.markdown(f'<div class="card"><div class="card-title">Price</div>'
-                        f'<div class="card-value">${price:,.2f}</div></div>', unsafe_allow_html=True)
-        with col_c:
-            st.markdown(f'<div class="card"><div class="card-title">Decision</div>'
-                        f'<div class="card-value">{action_badge(action)}</div></div>',
-                        unsafe_allow_html=True)
-        with col_d:
-            conf = trader_r.get("confidence", 0)
-            st.markdown(f'<div class="card"><div class="card-title">Confidence</div>'
-                        f'<div class="card-value">{int(conf*100)}%</div></div>',
-                        unsafe_allow_html=True)
-        with col_e:
-            risk_approved = risk_r.get("approved", False)
-            risk_txt = "✅ Approved" if risk_approved else "❌ Vetoed"
-            st.markdown(f'<div class="card"><div class="card-title">Risk Manager</div>'
-                        f'<div class="card-value" style="font-size:20px;">{risk_txt}</div></div>',
-                        unsafe_allow_html=True)
-
-        # ── Agent signal grid ──
-        st.markdown("### Agent Signals")
-        cols = st.columns(4)
-        for i, key in enumerate(["macro_analysis","fundamental_analysis",
-                                  "technical_analysis","sentiment_analysis"]):
-            r = result.get(key, {})
-            sig = r.get("signal", "NEUTRAL")
-            cls = "agent-bull" if "BULL" in sig else "agent-bear" if "BEAR" in sig else "agent-neutral"
-            with cols[i]:
-                st.markdown(
-                    f'<div class="agent-card {cls}">'
-                    f'<div class="agent-name">{r.get("agent","")}</div>'
-                    f'<div class="agent-signal">{signal_badge(sig)}</div>'
-                    f'{conf_bar(r.get("confidence",0))}'
-                    f'<hr class="card-divider">'
-                    f'<div class="agent-reasoning">{(r.get("reasoning","") or "")[:200]}</div>'
-                    f'</div>', unsafe_allow_html=True)
-
-        # ── Bull vs Bear ──
-        st.markdown("### Bull vs Bear Debate")
-        col_bull, col_bear = st.columns(2)
-        bull_r = result.get("bull_analysis", {})
-        bear_r = result.get("bear_analysis", {})
-        with col_bull:
-            st.markdown(
-                f'<div class="agent-card agent-bull">'
-                f'<div class="agent-name">🐂 Bull Researcher</div>'
-                f'{conf_bar(bull_r.get("confidence",0))}'
-                f'<hr class="card-divider">'
-                f'<div class="agent-reasoning"><b>Thesis:</b> {bull_r.get("bull_thesis","")}</div>'
-                f'<div class="agent-reasoning" style="margin-top:8px;"><b>Target:</b> '
-                f'${bull_r.get("upside_target","?")}</div>'
-                f'<div class="agent-reasoning"><b>Catalysts:</b><ul>'
-                + "".join(f'<li>{c}</li>' for c in (bull_r.get("key_catalysts") or [])[:3])
-                + f'</ul></div></div>', unsafe_allow_html=True)
-        with col_bear:
-            st.markdown(
-                f'<div class="agent-card agent-bear">'
-                f'<div class="agent-name">🐻 Bear Researcher</div>'
-                f'{conf_bar(bear_r.get("confidence",0))}'
-                f'<hr class="card-divider">'
-                f'<div class="agent-reasoning"><b>Thesis:</b> {bear_r.get("bear_thesis","")}</div>'
-                f'<div class="agent-reasoning" style="margin-top:8px;"><b>Target:</b> '
-                f'${bear_r.get("downside_target","?")}</div>'
-                f'<div class="agent-reasoning"><b>Risks:</b><ul>'
-                + "".join(f'<li>{c}</li>' for c in (bear_r.get("key_risks") or [])[:3])
-                + f'</ul></div></div>', unsafe_allow_html=True)
-
-        # ── Trade ticket ──
-        st.markdown("### Trade Ticket")
-        stop   = trader_r.get("stop_loss")
-        target = trader_r.get("take_profit")
-        qty    = trader_r.get("quantity", 0)
-
-        col_t1, col_t2 = st.columns([2, 1])
-        with col_t1:
-            st.markdown(
-                f'<div class="trade-ticket">'
-                f'<div style="font-size:18px;font-weight:700;margin-bottom:16px;">'
-                f'{action_badge(action)} {ticker} — {trader_r.get("time_horizon","?")}</div>'
-                f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">'
-                f'<div><div class="metric-label">Entry</div>'
-                f'<div style="font-size:20px;font-weight:700;">${trader_r.get("entry_price",price):,.2f}</div></div>'
-                f'<div><div class="metric-label">Stop Loss</div>'
-                f'<div style="font-size:20px;font-weight:700;color:#ef4444;">${stop or "N/A":}</div></div>'
-                f'<div><div class="metric-label">Take Profit</div>'
-                f'<div style="font-size:20px;font-weight:700;color:#22c55e;">${target or "N/A":}</div></div>'
-                f'</div>'
-                f'<div style="margin-top:16px;font-size:13px;color:#64748b;">'
-                f'<b>Quantity:</b> {qty} shares &nbsp;|&nbsp; '
-                f'<b>R:R:</b> {risk_r.get("risk_reward_ratio","?")}&nbsp;|&nbsp;'
-                f'<b>Max Loss:</b> ${risk_r.get("max_loss_dollars","?")}'
-                f'</div>'
-                f'<div style="margin-top:12px;font-size:13px;color:#475569;">'
-                f'{trader_r.get("reasoning","")[:400]}'
-                f'</div></div>',
-                unsafe_allow_html=True,
-            )
-        with col_t2:
-            if action != "HOLD" and risk_r.get("approved"):
-                if st.button(f"Execute {action} Trade", type="primary", use_container_width=True):
-                    with st.spinner("Submitting order..."):
-                        order = execute_trade(ticker, trader_r)
-                    if order.get("status") == "error":
-                        st.error(f"Order failed: {order.get('error')}")
-                    else:
-                        st.success(f"Order submitted! ID: {order.get('order_id','?')}")
-            elif not risk_r.get("approved"):
-                st.error(f"Vetoed: {risk_r.get('veto_reason','Risk controls')}")
-            else:
-                st.info("No trade recommended (HOLD)")
-
-            if action != "HOLD":
-                if st.button("Add to Watchlist", use_container_width=True):
-                    db.add_to_watchlist(ticker)
-                    st.success(f"{ticker} added to watchlist")
-
-        # ── Hedge Recommendations ──
-        if hedge_r.get("hedge_needed"):
-            st.markdown("### Hedge Agent Alert")
-            recs = hedge_r.get("recommendations", [])
-            rec_html = "".join(
-                f'<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">'
-                f'{action_badge(r.get("action","?"))} <b>{r.get("instrument","?")}</b> '
-                f'({r.get("allocation_pct","?"):.1f}% allocation) — {r.get("rationale","")}'
-                f'</div>'
-                for r in recs
-            )
-            urgency = hedge_r.get("urgency", "LOW")
-            urgency_color = {"HIGH": "#ef4444", "MEDIUM": "#f59e0b", "LOW": "#22c55e"}.get(urgency, "#64748b")
-            st.markdown(
-                f'<div class="card" style="border-left:4px solid {urgency_color};">'
-                f'<div class="card-title">Portfolio Hedge Needed — Urgency: '
-                f'<span style="color:{urgency_color};">{urgency}</span></div>'
-                f'<div style="font-size:13px;color:#475569;margin-bottom:12px;">'
-                f'{hedge_r.get("reasoning","")}</div>'
-                f'{rec_html}</div>',
-                unsafe_allow_html=True,
-            )
-
-        # ── Price chart ──
-        st.markdown("### Price Chart")
-        df = fetcher.get_price_history(ticker, "6mo")
-        if not df.empty:
-            tech = result.get("technicals", {})
-            fig = go.Figure()
-            fig.add_trace(go.Candlestick(
-                x=df.index, open=df["Open"], high=df["High"],
-                low=df["Low"], close=df["Close"], name="Price",
-            ))
-            for label, col_key, color in [
-                ("SMA 50", "sma_50", "#3b82f6"),
-                ("SMA 200", "sma_200", "#f59e0b"),
-            ]:
-                if tech.get(col_key):
-                    fig.add_hline(y=tech[col_key], line_dash="dash",
-                                  line_color=color,
-                                  annotation_text=label, annotation_position="right")
-            if tech.get("bb_upper"):
-                fig.add_hline(y=tech["bb_upper"], line_dash="dot", line_color="#94a3b8",
-                              annotation_text="BB Upper")
-            if tech.get("bb_lower"):
-                fig.add_hline(y=tech["bb_lower"], line_dash="dot", line_color="#94a3b8",
-                              annotation_text="BB Lower")
-            if stop:
-                fig.add_hline(y=stop, line_color="#ef4444", line_dash="solid",
-                              annotation_text=f"Stop ${stop:.2f}", annotation_position="right")
-            if target:
-                fig.add_hline(y=target, line_color="#22c55e", line_dash="solid",
-                              annotation_text=f"Target ${target:.2f}", annotation_position="right")
-
-            fig.update_layout(
-                height=450, paper_bgcolor="white", plot_bgcolor="white",
-                xaxis_rangeslider_visible=False,
-                margin=dict(l=10, r=60, t=20, b=10),
-                xaxis=dict(gridcolor="#f1f5f9"),
-                yaxis=dict(gridcolor="#f1f5f9"),
-            )
-            st.plotly_chart(fig, use_container_width=True)
+        _render_analysis_result(result)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -521,118 +523,194 @@ if page == "Manual Analysis":
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Screener":
     st.markdown("# S&P 50 Screener")
-    st.markdown('<p style="color:#64748b;">Scan top S&P 500 stocks with all 9 agents for LONG/SHORT signals.</p>',
-                unsafe_allow_html=True)
+    st.markdown('<p style="color:#64748b;">One-shot scan of top S&P 500 stocks — Haiku agents only. Select a ticker to run full Opus analysis.</p>', unsafe_allow_html=True)
 
+    # ── Session summary card ──────────────────────────────────────────────────
+    port_now      = portfolio.get_portfolio_summary()
+    held_tickers  = [p["symbol"] for p in port_now.get("positions", [])]
+    daily_pnl_val = db.get_daily_pnl()
+    output        = st.session_state.get("screener_output")
+    scanned       = output["tickers_scanned"] if output else 0
+    strong_n      = (output["long_count"] + output["short_count"]) if output else 0
+
+    pnl_color = "#15803d" if daily_pnl_val >= 0 else "#b91c1c"
+    held_str  = ", ".join(held_tickers) if held_tickers else "None"
+
+    st.markdown(
+        f'<div class="summary-grid">'
+        f'<div class="summary-cell"><div class="summary-label">Tickers Scanned</div>'
+        f'<div class="summary-val">{scanned}</div>'
+        f'<div class="summary-sub">this session</div></div>'
+        f'<div class="summary-cell"><div class="summary-label">Strong Signals</div>'
+        f'<div class="summary-val">{strong_n}</div>'
+        f'<div class="summary-sub">score &gt;65 or &lt;35</div></div>'
+        f'<div class="summary-cell"><div class="summary-label">Positions Held</div>'
+        f'<div class="summary-val">{len(held_tickers)}</div>'
+        f'<div class="summary-sub" title="{held_str}">{held_str[:30]}{"…" if len(held_str)>30 else ""}</div></div>'
+        f'<div class="summary-cell"><div class="summary-label">Today\'s P&L</div>'
+        f'<div class="summary-val" style="color:{pnl_color};">${daily_pnl_val:+,.2f}</div>'
+        f'<div class="summary-sub">from closed trades</div></div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Controls ──────────────────────────────────────────────────────────────
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
-        custom = st.text_input("Custom tickers (comma-separated, or leave blank for S&P 50)",
-                               placeholder="AAPL, MSFT, NVDA ...")
+        custom_input = st.text_input(
+            "Custom tickers (comma-separated, leave blank for S&P 50)",
+            placeholder="AAPL, TSLA, NVDA …",
+        )
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
-        run_screen = st.button("Run Screener", type="primary", use_container_width=True)
+        run_screen = st.button("🔍 Scan Now", type="primary", use_container_width=True)
     with col3:
         st.markdown("<br>", unsafe_allow_html=True)
-        filter_opt = st.selectbox("Filter", ["All", "LONG Only", "SHORT Only"])
+        filter_opt = st.selectbox("Show", ["All signals", "LONG only", "SHORT only"])
 
     if run_screen:
-        tickers = [t.strip().upper() for t in custom.split(",")] if custom.strip() else SP50_TICKERS
-        st.session_state.screener_results = []
+        tickers = (
+            [t.strip().upper() for t in custom_input.split(",") if t.strip()]
+            if custom_input.strip()
+            else SP50_TICKERS
+        )
+        st.session_state.screener_output  = None
+        st.session_state.analysis_result  = None
 
-        progress_bar = st.progress(0)
-        status_text  = st.empty()
+        prog  = st.progress(0.0)
+        label = st.empty()
 
-        def progress_cb(i, total, ticker):
-            progress_bar.progress((i + 1) / total)
-            status_text.markdown(f"Analysing **{ticker}** ({i+1}/{total})...")
+        def _cb(i, total, tick):
+            prog.progress(i / max(total, 1))
+            label.markdown(f"Analysing **{tick}** ({i}/{total})…")
 
         from utils.screener import Screener
-        screener = Screener(progress_callback=progress_cb)
-        results  = screener.run(tickers)
-        st.session_state.screener_results = results
-        status_text.empty()
-        progress_bar.empty()
+        sc = Screener(progress_callback=_cb)
+        st.session_state.screener_output = sc.run(
+            tickers=tickers,
+            excluded_tickers=held_tickers,
+        )
+        prog.empty(); label.empty()
+        st.rerun()
 
-    results = st.session_state.get("screener_results", [])
-    if results:
-        if filter_opt == "LONG Only":
+    # ── Results ───────────────────────────────────────────────────────────────
+    output = st.session_state.get("screener_output")
+    if output is None:
+        st.info("Press **Scan Now** to run the screener.")
+    else:
+        results = output["results"]
+
+        # Apply filter
+        if filter_opt == "LONG only":
             results = [r for r in results if r.get("action") == "LONG"]
-        elif filter_opt == "SHORT Only":
+        elif filter_opt == "SHORT only":
             results = [r for r in results if r.get("action") == "SHORT"]
 
-        longs  = len([r for r in results if r.get("action") == "LONG"])
-        shorts = len([r for r in results if r.get("action") == "SHORT"])
-        holds  = len([r for r in results if r.get("action") == "HOLD"])
+        # Exclude HOLD and ERROR from main display
+        display = [r for r in results if r.get("action") in ("LONG", "SHORT")]
 
-        c1, c2, c3, c4 = st.columns(4)
-        for col, label, val, color in [
-            (c1, "Total Scanned", len(results), "#1e293b"),
-            (c2, "LONG Signals",  longs,  "#166534"),
-            (c3, "SHORT Signals", shorts, "#991b1b"),
-            (c4, "HOLD",          holds,  "#854d0e"),
-        ]:
-            with col:
-                st.markdown(
-                    f'<div class="card">'
-                    f'<div class="card-title">{label}</div>'
-                    f'<div class="card-value" style="color:{color};">{val}</div>'
-                    f'</div>', unsafe_allow_html=True)
-
-        # Table
-        rows_html = ""
-        for r in results:
-            action = r.get("action", "HOLD")
-            score  = r.get("composite_score", 0)
-            bar_w  = int(abs(score) * 100)
-            bar_c  = "#22c55e" if score > 0 else "#ef4444"
-            rows_html += (
-                f'<tr>'
-                f'<td><b>{r.get("ticker","")}</b></td>'
-                f'<td>${r.get("price",0):,.2f}</td>'
-                f'<td>{action_badge(action)}</td>'
-                f'<td><div style="display:flex;align-items:center;gap:8px;">'
-                f'<div style="background:#f1f5f9;border-radius:4px;width:80px;height:8px;">'
-                f'<div style="width:{bar_w}%;background:{bar_c};height:8px;border-radius:4px;"></div></div>'
-                f'<span style="font-size:12px;color:#64748b;">{score:+.2f}</span>'
-                f'</div></td>'
-                f'<td>{signal_badge(r.get("macro_signal","?"))}</td>'
-                f'<td>{signal_badge(r.get("fund_signal","?"))}</td>'
-                f'<td>{signal_badge(r.get("tech_signal","?"))}</td>'
-                f'<td>{signal_badge(r.get("sent_signal","?"))}</td>'
-                f'<td style="color:#64748b;">{r.get("tech_trend","?")}</td>'
-                f'<td style="color:#64748b;">{r.get("rsi","?")}</td>'
-                f'</tr>'
+        if not output["has_opportunities"]:
+            st.markdown(
+                '<div class="sit-out">'
+                '<h2>🧘 No Compelling Opportunities Today — Sit Out</h2>'
+                '<p>No ticker scored above 65 (LONG) or below 35 (SHORT). '
+                'The market lacks a clear edge right now. Preserving capital is the trade.</p>'
+                '</div>',
+                unsafe_allow_html=True,
             )
+        else:
+            # Excluded tickers note
+            excl = output.get("tickers_excluded", [])
+            if excl:
+                st.info(f"ℹ️ Excluded (already held): {', '.join(excl)}")
 
-        st.markdown(
-            f'<div class="card" style="padding:0;overflow:hidden;">'
-            f'<table class="screener-table">'
-            f'<thead><tr>'
-            f'<th>Ticker</th><th>Price</th><th>Signal</th><th>Score</th>'
-            f'<th>Macro</th><th>Fund</th><th>Tech</th><th>Sent</th>'
-            f'<th>Trend</th><th>RSI</th>'
-            f'</tr></thead>'
-            f'<tbody>{rows_html}</tbody>'
-            f'</table></div>',
-            unsafe_allow_html=True,
-        )
+            # Summary chips
+            c1, c2, c3, c4 = st.columns(4)
+            for col, lbl, val, clr in [
+                (c1, "Scanned",  output["tickers_scanned"], "#0f172a"),
+                (c2, "LONG",     output["long_count"],       "#15803d"),
+                (c3, "SHORT",    output["short_count"],      "#b91c1c"),
+                (c4, "Excluded", len(excl),                  "#64748b"),
+            ]:
+                with col:
+                    st.markdown(
+                        f'<div class="card" style="padding:14px 20px;">'
+                        f'<div class="card-title">{lbl}</div>'
+                        f'<div class="card-value" style="color:{clr};">{val}</div>'
+                        f'</div>', unsafe_allow_html=True)
 
-        # Sector Rotation
+            # Table
+            if display:
+                rows = ""
+                for r in display:
+                    action = r.get("action", "HOLD")
+                    score  = r.get("score", 50)
+                    bw     = int(abs(score - 50) * 2)
+                    bc     = "#15803d" if action == "LONG" else "#b91c1c"
+                    rsi    = r.get("rsi")
+                    rsi_c  = "#b91c1c" if rsi and rsi > 70 else "#15803d" if rsi and rsi < 30 else "#334155"
+                    rows += (
+                        f'<tr>'
+                        f'<td><b style="color:#0f172a;">{r.get("ticker","")}</b></td>'
+                        f'<td style="color:#0f172a;">${r.get("price",0):,.2f}</td>'
+                        f'<td>{badge_action(action)}</td>'
+                        f'<td>'
+                        f'<div style="display:flex;align-items:center;gap:8px;">'
+                        f'<div style="background:#e2e8f0;border-radius:4px;width:70px;height:8px;">'
+                        f'<div style="width:{bw}%;background:{bc};height:8px;border-radius:4px;"></div></div>'
+                        f'<span style="font-size:12px;color:#334155;font-weight:600;">{score:.0f}</span>'
+                        f'</div></td>'
+                        f'<td>{badge_signal(r.get("macro_signal","?"))}</td>'
+                        f'<td>{badge_signal(r.get("fund_signal","?"))}</td>'
+                        f'<td>{badge_signal(r.get("tech_signal","?"))}</td>'
+                        f'<td>{badge_signal(r.get("sent_signal","?"))}</td>'
+                        f'<td style="color:#334155;">{r.get("tech_trend","?")}</td>'
+                        f'<td style="color:{rsi_c};font-weight:600;">'
+                        f'{f"{rsi:.1f}" if rsi else "N/A"}</td>'
+                        f'</tr>'
+                    )
+
+                st.markdown(
+                    f'<div class="card" style="padding:0;overflow:hidden;">'
+                    f'<table class="stbl"><thead><tr>'
+                    f'<th>Ticker</th><th>Price</th><th>Signal</th><th>Score/100</th>'
+                    f'<th>Macro</th><th>Fund</th><th>Tech</th><th>Sent</th>'
+                    f'<th>Trend</th><th>RSI</th>'
+                    f'</tr></thead><tbody>{rows}</tbody></table></div>',
+                    unsafe_allow_html=True,
+                )
+
+                # ── Ticker selector → full 9-agent analysis ──────────────────
+                st.markdown("### Run Full Analysis on a Screener Result")
+                st.markdown('<p style="color:#64748b;font-size:13px;">Selects a ticker from the screener above and runs all 9 agents including Opus for a complete trade recommendation.</p>', unsafe_allow_html=True)
+
+                strong_tickers = [r["ticker"] for r in display]
+                sel = st.selectbox("Select ticker for full analysis", ["— select —"] + strong_tickers)
+                if sel != "— select —":
+                    if st.button(f"Run Full Analysis: {sel}", type="primary"):
+                        st.session_state.analysis_result = run_full_analysis(sel)
+                        st.rerun()
+
+        # Show full analysis result if triggered from screener
+        if st.session_state.get("analysis_result"):
+            st.markdown("---")
+            st.markdown(f"## Full Analysis: {st.session_state.analysis_result.get('ticker','')}")
+            _render_analysis_result(st.session_state.analysis_result)
+
+        # Sector rotation
         st.markdown("### Sector Rotation")
-        with st.spinner("Loading sector performance..."):
-            sector_data = fetcher.get_sector_performance()
-
-        if sector_data:
-            df_sector = pd.DataFrame([
-                {"Sector": s, "ETF": v.get("etf",""), "1D%": v.get("ret_1d"),
-                 "5D%": v.get("ret_5d"), "1M%": v.get("ret_1m")}
-                for s, v in sector_data.items()
+        with st.spinner("Fetching sector ETF performance…"):
+            sec = fetcher.get_sector_performance()
+        if sec:
+            df_sec = pd.DataFrame([
+                {"Sector": s, "ETF": v.get("etf",""),
+                 "1D%": v.get("ret_1d"), "5D%": v.get("ret_5d"), "1M%": v.get("ret_1m")}
+                for s, v in sec.items()
             ]).sort_values("1M%", ascending=False)
-
             fig = px.bar(
-                df_sector.dropna(subset=["1M%"]),
+                df_sec.dropna(subset=["1M%"]),
                 x="Sector", y="1M%", color="1M%",
-                color_continuous_scale=["#ef4444", "#f8fafc", "#22c55e"],
+                color_continuous_scale=["#b91c1c","#f1f5f9","#15803d"],
                 color_continuous_midpoint=0,
                 title="Sector 1-Month Performance (%)",
             )
@@ -640,7 +718,9 @@ elif page == "Screener":
                 height=350, paper_bgcolor="white", plot_bgcolor="white",
                 coloraxis_showscale=False,
                 margin=dict(l=10, r=10, t=40, b=80),
-                xaxis=dict(tickangle=-30),
+                xaxis=dict(tickangle=-30, color="#334155"),
+                yaxis=dict(color="#334155"),
+                font=dict(color="#334155"),
             )
             st.plotly_chart(fig, use_container_width=True)
 
@@ -650,42 +730,42 @@ elif page == "Screener":
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Semi-Auto":
     st.markdown("# Semi-Auto Trading")
-    st.markdown('<p style="color:#64748b;">Agents find opportunities — you approve each trade.</p>',
-                unsafe_allow_html=True)
+    st.markdown('<p style="color:#64748b;">Agents scan your watchlist once. You approve each trade.</p>', unsafe_allow_html=True)
 
     watchlist = db.get_watchlist()
     if not watchlist:
-        st.info("Add tickers to your Watchlist first, then come back here.")
+        st.info("Add tickers to your Watchlist first, then return here.")
     else:
         if st.button("Scan Watchlist Now", type="primary"):
             for ticker in watchlist:
                 with st.expander(f"📊 {ticker}", expanded=True):
-                    result = run_full_analysis(ticker)
+                    result   = run_full_analysis(ticker)
                     trader_r = result.get("trader_analysis", {})
                     risk_r   = result.get("risk_analysis", {})
                     action   = trader_r.get("action", "HOLD")
+                    conf     = int(trader_r.get("confidence", 0) * 100)
 
                     st.markdown(
-                        f'{action_badge(action)} &nbsp;'
-                        f'Confidence: {int(trader_r.get("confidence",0)*100)}% &nbsp;|&nbsp;'
-                        f'Entry: ${trader_r.get("entry_price",0):,.2f} &nbsp;|&nbsp;'
-                        f'Stop: ${trader_r.get("stop_loss","?")} &nbsp;|&nbsp;'
-                        f'Target: ${trader_r.get("take_profit","?")}',
+                        f'{badge_action(action)} &nbsp; '
+                        f'<span style="color:#334155;">Confidence: <b>{conf}%</b> &nbsp;·&nbsp; '
+                        f'Entry: <b>${trader_r.get("entry_price",0):,.2f}</b> &nbsp;·&nbsp; '
+                        f'Stop: <b>${trader_r.get("stop_loss","?")}</b> &nbsp;·&nbsp; '
+                        f'Target: <b>${trader_r.get("take_profit","?")}</b></span>',
                         unsafe_allow_html=True,
                     )
-                    st.write(trader_r.get("reasoning", ""))
-
+                    st.markdown(
+                        f'<div style="font-size:13px;color:#334155;margin-top:8px;">'
+                        f'{trader_r.get("reasoning","")}</div>',
+                        unsafe_allow_html=True,
+                    )
                     if action != "HOLD" and risk_r.get("approved"):
-                        col_approve, col_skip = st.columns(2)
-                        with col_approve:
+                        ca, cs = st.columns(2)
+                        with ca:
                             if st.button(f"✅ Execute {action}", key=f"exec_{ticker}",
                                          type="primary", use_container_width=True):
                                 order = execute_trade(ticker, trader_r)
-                                if order.get("status") == "error":
-                                    st.error(order.get("error"))
-                                else:
-                                    st.success("Trade submitted!")
-                        with col_skip:
+                                st.success("Submitted!") if order.get("status") != "error" else st.error(order.get("error"))
+                        with cs:
                             st.button("Skip", key=f"skip_{ticker}", use_container_width=True)
                     elif not risk_r.get("approved"):
                         st.warning(f"Risk Manager vetoed: {risk_r.get('veto_reason','')}")
@@ -696,66 +776,57 @@ elif page == "Semi-Auto":
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Autonomous":
     st.markdown("# Autonomous Mode")
-    st.warning("⚠️ Autonomous mode will execute real paper trades automatically. Ensure risk controls are properly set.")
+    st.warning("⚠️ Autonomous mode executes real paper trades automatically. Verify risk controls before starting.")
 
     rc = st.session_state.risk_config
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Max Position", f"{rc['max_position_pct']*100:.0f}%")
-    with col2:
-        st.metric("Daily Loss Limit", f"{rc['daily_loss_limit']*100:.0f}%")
-    with col3:
-        st.metric("Max Positions", rc["max_positions"])
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Max Position", f"{rc['max_position_pct']*100:.0f}%")
+    c2.metric("Daily Loss Limit", f"{rc['daily_loss_limit']*100:.0f}%")
+    c3.metric("Max Positions", rc["max_positions"])
 
-    running = st.session_state.get("autonomous_running", False)
-    if not running:
+    if not st.session_state.autonomous_running:
         if st.button("Start Autonomous Trading", type="primary"):
             st.session_state.autonomous_running = True
             st.rerun()
     else:
-        if st.button("Stop Autonomous Trading", type="secondary"):
+        if st.button("Stop", type="secondary"):
             st.session_state.autonomous_running = False
             st.rerun()
 
-        watchlist = db.get_watchlist() or SP50_TICKERS[:10]
-        log_container = st.empty()
-        logs = []
+        scan_list     = db.get_watchlist() or SP50_TICKERS[:10]
+        held_syms     = [p["symbol"] for p in portfolio.get_portfolio_summary().get("positions", [])]
+        scan_list     = [t for t in scan_list if t not in held_syms]
+        log_box       = st.empty()
+        logs          = []
 
-        for ticker in watchlist:
-            # Check daily loss limit
+        for ticker in scan_list:
             daily_pnl = db.get_daily_pnl()
             acc_val   = portfolio.get_account().get("account_value", 100000)
             if acc_val and (-daily_pnl / acc_val) >= rc["daily_loss_limit"]:
-                logs.append(f"🛑 Daily loss limit hit. Stopping.")
-                break
+                logs.append("🛑 Daily loss limit hit. Stopping."); break
 
-            # Check max positions
-            port = portfolio.get_portfolio_summary()
-            if port.get("open_positions", 0) >= rc["max_positions"]:
-                logs.append(f"⏸ Max positions reached ({rc['max_positions']}). Skipping {ticker}.")
-                continue
+            port_n = portfolio.get_portfolio_summary()
+            if port_n.get("open_positions", 0) >= rc["max_positions"]:
+                logs.append(f"⏸ Max positions ({rc['max_positions']}) reached. Skipping {ticker}."); continue
 
-            logs.append(f"🔍 Analysing {ticker}...")
-            log_container.text("\n".join(logs[-20:]))
-
+            logs.append(f"🔍 Analysing {ticker}…"); log_box.text("\n".join(logs[-20:]))
             try:
-                result = run_full_analysis(ticker)
+                result   = run_full_analysis(ticker)
                 trader_r = result.get("trader_analysis", {})
                 risk_r   = result.get("risk_analysis", {})
                 action   = trader_r.get("action", "HOLD")
-
                 if action != "HOLD" and risk_r.get("approved"):
                     order = execute_trade(ticker, trader_r)
-                    if order.get("status") == "error":
-                        logs.append(f"❌ {ticker}: {order.get('error')}")
-                    else:
-                        logs.append(f"✅ {ticker}: {action} order submitted ({order.get('order_id','?')})")
+                    logs.append(
+                        f"✅ {ticker}: {action} submitted ({order.get('order_id','?')})"
+                        if order.get("status") != "error"
+                        else f"❌ {ticker}: {order.get('error')}"
+                    )
                 else:
                     logs.append(f"⏭ {ticker}: {action} — skipped")
             except Exception as e:
-                logs.append(f"⚠️ {ticker}: Error — {e}")
-
-            log_container.text("\n".join(logs[-20:]))
+                logs.append(f"⚠️ {ticker}: {e}")
+            log_box.text("\n".join(logs[-20:]))
             time.sleep(2)
 
         st.session_state.autonomous_running = False
@@ -768,82 +839,63 @@ elif page == "Autonomous":
 elif page == "Watchlist":
     st.markdown("# Watchlist")
 
-    col_add, col_btn = st.columns([3, 1])
-    with col_add:
-        new_ticker = st.text_input("Add ticker", placeholder="AAPL", key="wl_input").upper().strip()
-    with col_btn:
+    ca, cb = st.columns([3, 1])
+    with ca:
+        new_t = st.text_input("Add ticker", placeholder="AAPL", key="wl_add").upper().strip()
+    with cb:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Add", use_container_width=True) and new_ticker:
-            db.add_to_watchlist(new_ticker)
-            st.rerun()
+        if st.button("Add", use_container_width=True) and new_t:
+            db.add_to_watchlist(new_t); st.rerun()
 
     watchlist = db.get_watchlist()
     if not watchlist:
         st.info("Your watchlist is empty. Add tickers above.")
     else:
-        if st.button("Refresh Prices", use_container_width=False):
-            pass  # triggers rerun
-
+        st.button("Refresh Prices")
         rows = []
-        for ticker in watchlist:
-            price = fetcher.get_current_price(ticker)
-            tech  = fetcher.get_technicals(ticker)
+        for t in watchlist:
+            p    = fetcher.get_current_price(t)
+            tech = fetcher.get_technicals(t)
             rows.append({
-                "Ticker": ticker,
-                "Price":  price,
-                "1D%":    tech.get("ret_1d"),
-                "5D%":    tech.get("ret_5d"),
+                "Ticker": t, "Price": p,
+                "1D%":    tech.get("ret_1d"),  "5D%":    tech.get("ret_5d"),
                 "RSI":    tech.get("rsi"),
-                "vs SMA50": tech.get("pct_vs_sma50"),
+                "vs SMA50":  tech.get("pct_vs_sma50"),
                 "vs SMA200": tech.get("pct_vs_sma200"),
             })
 
-        df_wl = pd.DataFrame(rows)
+        def _pc(v):
+            v = v or 0
+            c = "#15803d" if v >= 0 else "#b91c1c"
+            return f'<td style="color:{c};font-weight:600;">{v:+.2f}%</td>'
 
-        rows_html = ""
-        for _, r in df_wl.iterrows():
-            ticker = r["Ticker"]
-            price  = r["Price"] or 0
-            d1     = r["1D%"] or 0
-            d5     = r["5D%"] or 0
-            rsi    = r["RSI"] or 0
-            vs50   = r["vs SMA50"] or 0
-            vs200  = r["vs SMA200"] or 0
-
-            def pct_cell(v):
-                c = "#22c55e" if v >= 0 else "#ef4444"
-                return f'<td style="color:{c};">{v:+.2f}%</td>'
-
-            rows_html += (
-                f'<tr>'
-                f'<td><b>{ticker}</b></td>'
-                f'<td>${price:,.2f}</td>'
-                + pct_cell(d1) + pct_cell(d5)
-                + f'<td style="color:{"#ef4444" if rsi>70 else "#22c55e" if rsi<30 else "#475569"};">{rsi:.1f}</td>'
-                + pct_cell(vs50) + pct_cell(vs200)
-                + f'<td><button onclick="return false;" style="background:#fee2e2;border:none;border-radius:4px;'
-                  f'padding:3px 8px;cursor:pointer;font-size:11px;">Remove</button></td>'
-                f'</tr>'
+        trows = ""
+        for r in rows:
+            rsi   = r["RSI"] or 0
+            rsi_c = "#b91c1c" if rsi > 70 else "#15803d" if rsi < 30 else "#334155"
+            trows += (
+                f'<tr><td><b style="color:#0f172a;">{r["Ticker"]}</b></td>'
+                f'<td style="color:#0f172a;">${(r["Price"] or 0):,.2f}</td>'
+                + _pc(r["1D%"]) + _pc(r["5D%"])
+                + f'<td style="color:{rsi_c};font-weight:600;">{rsi:.1f}</td>'
+                + _pc(r["vs SMA50"]) + _pc(r["vs SMA200"])
+                + f'<td></td></tr>'
             )
 
         st.markdown(
             f'<div class="card" style="padding:0;overflow:hidden;">'
-            f'<table class="screener-table">'
-            f'<thead><tr><th>Ticker</th><th>Price</th><th>1D%</th><th>5D%</th>'
-            f'<th>RSI</th><th>vs SMA50</th><th>vs SMA200</th><th></th></tr></thead>'
-            f'<tbody>{rows_html}</tbody>'
-            f'</table></div>',
+            f'<table class="stbl"><thead><tr>'
+            f'<th>Ticker</th><th>Price</th><th>1D%</th><th>5D%</th>'
+            f'<th>RSI</th><th>vs SMA50</th><th>vs SMA200</th><th></th>'
+            f'</tr></thead><tbody>{trows}</tbody></table></div>',
             unsafe_allow_html=True,
         )
-
-        # Remove buttons with Streamlit
-        st.markdown("**Remove from watchlist:**")
+        st.markdown("**Remove:**")
         cols = st.columns(min(len(watchlist), 6))
         for i, t in enumerate(watchlist):
             with cols[i % len(cols)]:
-                if st.button(f"Remove {t}", key=f"rm_{t}"):
-                    db.remove_from_watchlist(t)
-                    st.rerun()
+                if st.button(f"✕ {t}", key=f"rm_{t}"):
+                    db.remove_from_watchlist(t); st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -851,70 +903,63 @@ elif page == "Watchlist":
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Trade Journal":
     st.markdown("# Trade Journal")
+    tab_t, tab_d = st.tabs(["Trades", "Decision Log"])
 
-    tab_trades, tab_decisions = st.tabs(["Trades", "Decision Log"])
-
-    with tab_trades:
-        trades = db.get_trades(limit=100)
+    with tab_t:
+        trades = db.get_trades(100)
         if not trades:
             st.info("No trades logged yet.")
         else:
             df_t = pd.DataFrame(trades)
-            # Color P&L column
-            def style_pnl(val):
-                if val is None:
-                    return ""
-                return f"color: {'green' if val >= 0 else 'red'}"
+            cols = ["ticker","action","quantity","entry_price","stop_loss","take_profit","status","pnl","created_at"]
+            cols = [c for c in cols if c in df_t.columns]
+            df_s = df_t[cols].copy()
+            df_s.columns = [c.replace("_"," ").title() for c in cols]
 
-            cols_display = ["ticker", "action", "quantity", "entry_price",
-                            "stop_loss", "take_profit", "status", "pnl", "created_at"]
-            cols_display = [c for c in cols_display if c in df_t.columns]
-            df_show = df_t[cols_display].copy()
-            df_show.columns = [c.replace("_", " ").title() for c in cols_display]
+            def _style_pnl(val):
+                if pd.isna(val): return ""
+                return f"color:{'#15803d' if val>=0 else '#b91c1c'};font-weight:600"
 
             st.dataframe(
-                df_show.style.applymap(style_pnl, subset=["Pnl"] if "Pnl" in df_show.columns else []),
-                use_container_width=True,
-                height=400,
+                df_s.style.applymap(_style_pnl, subset=["Pnl"] if "Pnl" in df_s.columns else []),
+                use_container_width=True, height=400,
             )
 
-            # P&L chart
             closed = [t for t in trades if t.get("pnl") is not None]
             if closed:
-                df_pnl = pd.DataFrame(closed)[["created_at", "pnl", "ticker"]].copy()
-                df_pnl["created_at"] = pd.to_datetime(df_pnl["created_at"])
-                df_pnl = df_pnl.sort_values("created_at")
-                df_pnl["cumulative_pnl"] = df_pnl["pnl"].cumsum()
-
+                dfc = pd.DataFrame(closed)[["created_at","pnl","ticker"]].copy()
+                dfc["created_at"] = pd.to_datetime(dfc["created_at"])
+                dfc = dfc.sort_values("created_at")
+                dfc["cum_pnl"] = dfc["pnl"].cumsum()
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(
-                    x=df_pnl["created_at"], y=df_pnl["cumulative_pnl"],
+                    x=dfc["created_at"], y=dfc["cum_pnl"],
                     mode="lines+markers", name="Cumulative P&L",
-                    line=dict(color="#3b82f6", width=2),
-                    fill="tozeroy",
-                    fillcolor="rgba(59,130,246,0.1)",
+                    line=dict(color="#2563eb", width=2),
+                    fill="tozeroy", fillcolor="rgba(37,99,235,.08)",
                 ))
                 fig.update_layout(
                     title="Cumulative P&L", height=300,
                     paper_bgcolor="white", plot_bgcolor="white",
-                    xaxis=dict(gridcolor="#f1f5f9"),
-                    yaxis=dict(gridcolor="#f1f5f9", tickprefix="$"),
-                    margin=dict(l=10, r=10, t=40, b=10),
+                    xaxis=dict(gridcolor="#f1f5f9", color="#334155"),
+                    yaxis=dict(gridcolor="#f1f5f9", color="#334155", tickprefix="$"),
+                    font=dict(color="#334155"),
+                    margin=dict(l=10,r=10,t=40,b=10),
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-    with tab_decisions:
-        ticker_filter = st.text_input("Filter by ticker", placeholder="Leave blank for all").upper().strip()
-        decisions = db.get_decisions(ticker=ticker_filter or None, limit=300)
+    with tab_d:
+        tf = st.text_input("Filter by ticker", placeholder="Leave blank for all").upper().strip()
+        decisions = db.get_decisions(ticker=tf or None, limit=300)
         if not decisions:
             st.info("No decisions logged yet.")
         else:
-            df_d = pd.DataFrame(decisions)
-            cols_d = ["ticker", "agent_name", "signal", "confidence", "reasoning", "created_at"]
-            cols_d = [c for c in cols_d if c in df_d.columns]
-            df_show_d = df_d[cols_d].copy()
-            df_show_d.columns = [c.replace("_", " ").title() for c in cols_d]
-            st.dataframe(df_show_d, use_container_width=True, height=500)
+            dfd = pd.DataFrame(decisions)
+            cd  = ["ticker","agent_name","signal","confidence","reasoning","created_at"]
+            cd  = [c for c in cd if c in dfd.columns]
+            dfs = dfd[cd].copy()
+            dfs.columns = [c.replace("_"," ").title() for c in cd]
+            st.dataframe(dfs, use_container_width=True, height=500)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -922,76 +967,52 @@ elif page == "Trade Journal":
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Settings":
     st.markdown("# Settings")
-
-    with st.form("risk_settings"):
+    with st.form("risk_form"):
         st.markdown("### Risk Controls")
         rc = st.session_state.risk_config
-
-        col1, col2 = st.columns(2)
-        with col1:
-            max_pos = st.slider(
-                "Max Position Size (% of portfolio)", 1, 20,
-                int(rc["max_position_pct"] * 100), step=1,
-            )
-            daily_loss = st.slider(
-                "Daily Loss Limit (%)", 1, 10,
-                int(rc["daily_loss_limit"] * 100), step=1,
-            )
-            max_positions = st.slider(
-                "Max Concurrent Positions", 1, 30,
-                int(rc["max_positions"]), step=1,
-            )
-        with col2:
-            cooldown = st.slider(
-                "Cooldown per Ticker (minutes)", 5, 480,
-                int(rc["cooldown_minutes"]), step=5,
-            )
-            stop_loss = st.slider(
-                "Default Stop Loss (%)", 1, 10,
-                int(rc["stop_loss_pct"] * 100), step=1,
-            )
-            take_profit = st.slider(
-                "Default Take Profit (%)", 1, 20,
-                int(rc["take_profit_pct"] * 100), step=1,
-            )
-
-        if st.form_submit_button("Save Settings", type="primary"):
+        c1, c2 = st.columns(2)
+        with c1:
+            max_pos     = st.slider("Max Position Size (%)", 1, 20, int(rc["max_position_pct"]*100))
+            daily_loss  = st.slider("Daily Loss Limit (%)",  1, 10, int(rc["daily_loss_limit"]*100))
+            max_pos_n   = st.slider("Max Concurrent Positions", 1, 30, rc["max_positions"])
+        with c2:
+            cooldown    = st.slider("Cooldown per Ticker (min)", 5, 480, rc["cooldown_minutes"], step=5)
+            stop_l      = st.slider("Default Stop Loss (%)",    1, 10, int(rc["stop_loss_pct"]*100))
+            take_p      = st.slider("Default Take Profit (%)",  1, 20, int(rc["take_profit_pct"]*100))
+        if st.form_submit_button("Save", type="primary"):
             st.session_state.risk_config = {
-                "max_position_pct":  max_pos / 100,
-                "daily_loss_limit":  daily_loss / 100,
-                "max_positions":     max_positions,
-                "cooldown_minutes":  cooldown,
-                "stop_loss_pct":     stop_loss / 100,
-                "take_profit_pct":   take_profit / 100,
+                "max_position_pct": max_pos/100, "daily_loss_limit": daily_loss/100,
+                "max_positions": max_pos_n, "cooldown_minutes": cooldown,
+                "stop_loss_pct": stop_l/100, "take_profit_pct": take_p/100,
             }
             st.success("Settings saved!")
 
     st.markdown("### API Status")
-    api_checks = {
-        "Anthropic": bool(ANTHROPIC_API_KEY),
-        "Finnhub":   bool(__import__("config").FINNHUB_API_KEY),
-        "Alpaca":    portfolio.connected,
-        "NewsAPI":   bool(__import__("config").NEWS_API_KEY),
+    from config import FINNHUB_API_KEY, NEWS_API_KEY
+    checks = {
+        "Anthropic":  bool(ANTHROPIC_API_KEY),
+        "Finnhub":    bool(FINNHUB_API_KEY),
+        "Polygon.io": bool(POLYGON_API_KEY),
+        "Alpaca":     portfolio.connected,
+        "NewsAPI":    bool(NEWS_API_KEY),
     }
-    cols = st.columns(len(api_checks))
-    for i, (name, ok) in enumerate(api_checks.items()):
+    cols = st.columns(len(checks))
+    for i, (name, ok) in enumerate(checks.items()):
         with cols[i]:
-            icon = "✅" if ok else "❌"
             st.markdown(
-                f'<div class="card" style="text-align:center;">'
+                f'<div class="card" style="text-align:center;padding:16px;">'
                 f'<div class="card-title">{name}</div>'
-                f'<div style="font-size:28px;">{icon}</div>'
+                f'<div style="font-size:26px;">{"✅" if ok else "❌"}</div>'
                 f'</div>', unsafe_allow_html=True)
 
-    st.markdown("### About")
-    st.markdown("""
-    <div class="card">
-    <div class="card-title">AI Trading Agents v1.0</div>
-    <p style="color:#475569;font-size:13px;">
-    A 9-agent AI trading system powered by Claude.<br><br>
-    <b>Haiku agents</b> (fast analysis): Macro, Fundamental, Technical, Sentiment, Bull Researcher, Bear Researcher<br>
-    <b>Opus agents</b> (deep reasoning): Risk Manager, Head Trader, Hedge Agent<br><br>
-    All trades are executed via Alpaca paper trading with bracket orders (stop loss + take profit).
-    </p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        '<div class="card">'
+        '<div class="card-title">AI Trading Agents v2.0</div>'
+        '<p style="color:#334155;font-size:13px;line-height:1.6;">'
+        '<b>Screener:</b> Haiku-only (6 agents) — cost-efficient one-shot scan.<br>'
+        '<b>Full Analysis:</b> All 9 agents including Opus — triggered manually per ticker.<br>'
+        '<b>Technical data:</b> Polygon.io (primary) → yfinance fallback.<br>'
+        '<b>News:</b> Finnhub live headlines fed directly to Sentiment Agent.'
+        '</p></div>',
+        unsafe_allow_html=True,
+    )

@@ -9,6 +9,7 @@ FINNHUB_API_KEY    = os.getenv("FINNHUB_API_KEY", "")
 ALPACA_API_KEY     = os.getenv("ALPACA_API_KEY", "")
 ALPACA_SECRET_KEY  = os.getenv("ALPACA_SECRET_KEY", "")
 NEWS_API_KEY       = os.getenv("NEWS_API_KEY", "")
+POLYGON_API_KEY    = os.getenv("POLYGON_API_KEY", "")
 
 ALPACA_BASE_URL = "https://paper-api.alpaca.markets"
 
