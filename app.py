@@ -240,28 +240,61 @@ p, span, div, label, li, td, th, h1, h2, h3, h4, h5, h6 {
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   SIDEBAR  (intentionally dark navy)
+   SIDEBAR  (intentionally dark navy — must beat config.toml light theme)
    ════════════════════════════════════════════════════════════════════════════ */
+
+/* Background: every nested container must be dark */
 [data-testid="stSidebar"],
-[data-testid="stSidebar"] > div {
+[data-testid="stSidebar"] > div,
+[data-testid="stSidebar"] section,
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"],
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div,
+[data-testid="stSidebar"] [data-testid="stHorizontalBlock"],
+[data-testid="stSidebar"] .block-container {
   background: #0f172a !important;
+  background-color: #0f172a !important;
 }
+
+/* Text: every descendant gets the light slate colour */
+[data-testid="stSidebar"] *,
 [data-testid="stSidebar"] p,
 [data-testid="stSidebar"] span,
+[data-testid="stSidebar"] div,
 [data-testid="stSidebar"] label,
 [data-testid="stSidebar"] h1,
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] h3,
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] span {
+[data-testid="stSidebar"] strong,
+[data-testid="stSidebar"] em,
+[data-testid="stSidebar"] small {
   color: #e2e8f0 !important;
 }
+
+/* Radio nav items */
 [data-testid="stSidebar"] [data-testid="stRadio"] label,
 [data-testid="stSidebar"] [data-testid="stRadio"] span,
-[data-testid="stSidebar"] [role="radiogroup"] label span {
+[data-testid="stSidebar"] [role="radiogroup"] label span,
+[data-testid="stSidebar"] [data-baseweb="radio"] span {
   color: #e2e8f0 !important;
 }
+/* Selected radio dot */
+[data-testid="stSidebar"] [data-baseweb="radio"] [role="radio"] {
+  border-color: #60a5fa !important;
+}
+
+/* Dividers */
 [data-testid="stSidebar"] hr { border-color: #334155 !important; }
+
+/* Warning / info boxes inside sidebar */
+[data-testid="stSidebar"] [data-testid="stAlert"] {
+  background: #1e3a5f !important;
+  color: #bfdbfe !important;
+  border: 1px solid #3b82f6 !important;
+}
+[data-testid="stSidebar"] [data-testid="stAlert"] p,
+[data-testid="stSidebar"] [data-testid="stAlert"] span {
+  color: #bfdbfe !important;
+}
 
 /* ════════════════════════════════════════════════════════════════════════════
    CUSTOM COMPONENTS
@@ -526,29 +559,62 @@ def execute_trade(ticker: str, trader_r: dict) -> dict:
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 📈 AI Trading Agents")
-    st.markdown("---")
+    st.markdown(
+        '<h2 style="color:#f8fafc;margin:0 0 4px;">📈 AI Trading Agents</h2>',
+        unsafe_allow_html=True,
+    )
+    st.markdown('<hr style="border-color:#334155;margin:10px 0;">', unsafe_allow_html=True)
+
     page = st.radio(
         "nav", ["Manual Analysis", "Screener", "Semi-Auto", "Autonomous",
                 "Watchlist", "Trade Journal", "Settings"],
         label_visibility="collapsed",
     )
-    st.markdown("---")
+
+    st.markdown('<hr style="border-color:#334155;margin:10px 0;">', unsafe_allow_html=True)
+
     acc_info  = portfolio.get_account()
     connected = acc_info.get("connected", False)
-    dot = "🟢" if connected else "🔴"
-    st.markdown(f"{dot} Alpaca {'Connected' if connected else 'Disconnected'}")
+    dot       = "🟢" if connected else "🔴"
+
+    # Use raw HTML for all sidebar status so theme layer can't override colours
+    status_html = (
+        f'<p style="color:#e2e8f0;margin:6px 0;font-size:13px;">'
+        f'{dot} Alpaca <b>{"Connected" if connected else "Disconnected"}</b></p>'
+    )
     if connected:
-        st.markdown(f"**Portfolio:** ${acc_info.get('account_value',0):,.0f}")
-        st.markdown(f"**Buying Power:** ${acc_info.get('buying_power',0):,.0f}")
+        status_html += (
+            f'<p style="color:#94a3b8;font-size:12px;margin:3px 0;">Portfolio &nbsp;'
+            f'<span style="color:#f8fafc;font-weight:700;">'
+            f'${acc_info.get("account_value",0):,.0f}</span></p>'
+            f'<p style="color:#94a3b8;font-size:12px;margin:3px 0;">Buying Power &nbsp;'
+            f'<span style="color:#f8fafc;font-weight:700;">'
+            f'${acc_info.get("buying_power",0):,.0f}</span></p>'
+        )
     if not ANTHROPIC_API_KEY:
-        st.warning("⚠️ ANTHROPIC_API_KEY missing")
+        status_html += (
+            '<p style="background:#7f1d1d;color:#fca5a5;border-radius:6px;'
+            'padding:6px 10px;font-size:12px;margin:6px 0;">'
+            '⚠️ ANTHROPIC_API_KEY missing</p>'
+        )
     if not POLYGON_API_KEY:
-        st.info("💡 Add POLYGON_API_KEY for real-time TA data")
-    st.markdown("---")
-    dpnl = db.get_daily_pnl()
-    color = "green" if dpnl >= 0 else "red"
-    st.markdown(f"**Today's P&L:** :{color}[${dpnl:+,.2f}]")
+        status_html += (
+            '<p style="background:#1e3a5f;color:#93c5fd;border-radius:6px;'
+            'padding:6px 10px;font-size:12px;margin:6px 0;">'
+            '💡 Add POLYGON_API_KEY for real-time TA</p>'
+        )
+    st.markdown(status_html, unsafe_allow_html=True)
+
+    st.markdown('<hr style="border-color:#334155;margin:10px 0;">', unsafe_allow_html=True)
+
+    dpnl     = db.get_daily_pnl()
+    pnl_clr  = "#4ade80" if dpnl >= 0 else "#f87171"   # bright green/red on dark bg
+    st.markdown(
+        f'<p style="color:#94a3b8;font-size:12px;margin:3px 0;">Today\'s P&L &nbsp;'
+        f'<span style="color:{pnl_clr};font-weight:700;font-size:14px;">'
+        f'${dpnl:+,.2f}</span></p>',
+        unsafe_allow_html=True,
+    )
 
 
 def _render_analysis_result(result: dict):
@@ -1196,7 +1262,7 @@ elif page == "Trade Journal":
                 return f"color:{'#15803d' if val>=0 else '#b91c1c'};font-weight:600"
 
             st.dataframe(
-                df_s.style.applymap(_style_pnl, subset=["Pnl"] if "Pnl" in df_s.columns else []),
+                df_s.style.map(_style_pnl, subset=["Pnl"] if "Pnl" in df_s.columns else []),
                 use_container_width=True, height=400,
             )
 
