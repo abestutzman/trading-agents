@@ -6,9 +6,9 @@ from .bull_researcher import BullResearcher
 from .bear_researcher import BearResearcher
 from .risk_manager import RiskManager
 from .head_trader import HeadTrader
-from .hedge_agent import HedgeAgent
+from .options_agent import OptionsAgent
 
 __all__ = [
     "MacroAgent", "FundamentalAgent", "TechnicalAgent", "SentimentAgent",
-    "BullResearcher", "BearResearcher", "RiskManager", "HeadTrader", "HedgeAgent",
+    "BullResearcher", "BearResearcher", "RiskManager", "HeadTrader", "OptionsAgent",
 ]

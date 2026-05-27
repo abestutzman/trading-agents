@@ -15,6 +15,10 @@ ALPHA_VANTAGE_KEY  = os.getenv("ALPHA_VANTAGE_KEY", "")
 
 ALPACA_BASE_URL = "https://paper-api.alpaca.markets"
 
+# ── Tradier Sandbox ──────────────────────────────────────────────────────────
+TRADIER_SANDBOX_TOKEN = os.getenv("TRADIER_SANDBOX_TOKEN", "")
+TRADIER_SANDBOX_URL   = os.getenv("TRADIER_SANDBOX_URL", "https://sandbox.tradier.com")
+
 # ── Claude Models ────────────────────────────────────────────────────────────
 HAIKU_MODEL = "claude-haiku-4-5-20251001"
 OPUS_MODEL  = "claude-opus-4-7"          # latest Opus

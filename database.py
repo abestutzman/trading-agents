@@ -63,6 +63,26 @@ def init_db():
             ticker      TEXT    PRIMARY KEY,
             last_trade  TEXT    NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS options_trades (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticker          TEXT    NOT NULL,
+            option_symbol   TEXT    NOT NULL,
+            action          TEXT    NOT NULL,   -- buy_to_open / sell_to_open / buy_to_close
+            quantity        INTEGER NOT NULL,
+            limit_price     REAL,               -- mid of bid/ask at order time
+            status          TEXT    DEFAULT 'pending',
+            tradier_order_id TEXT,
+            created_at      TEXT    DEFAULT (datetime('now')),
+            filled_at       TEXT,
+            exit_price      REAL,
+            pnl             REAL,
+            expiration      TEXT,
+            strike          REAL,
+            option_type     TEXT,               -- "call" | "put"
+            structure       TEXT,               -- e.g. "bull_call_spread"
+            notes           TEXT
+        );
     """)
     conn.commit()
     conn.close()
@@ -315,6 +335,58 @@ def get_daily_stats(days: int = 30):
            ORDER BY date DESC
            LIMIT ?""",
         (days,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+# ── Options Trades ───────────────────────────────────────────────────────────
+
+def log_option_trade(ticker, option_symbol, action, quantity, limit_price,
+                     status="pending", tradier_order_id=None,
+                     expiration=None, strike=None, option_type=None,
+                     structure=None, notes=None):
+    conn = get_conn()
+    conn.execute(
+        """INSERT INTO options_trades
+           (ticker, option_symbol, action, quantity, limit_price,
+            status, tradier_order_id, expiration, strike, option_type, structure, notes)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (ticker, option_symbol, action, quantity, limit_price,
+         status, tradier_order_id, expiration, strike, option_type, structure, notes),
+    )
+    conn.commit()
+    conn.close()
+
+
+def update_option_trade_status(trade_id, status, exit_price=None, pnl=None):
+    conn = get_conn()
+    conn.execute(
+        """UPDATE options_trades
+           SET status=?, exit_price=?, pnl=?, filled_at=?
+           WHERE id=?""",
+        (status, exit_price, pnl,
+         datetime.utcnow().isoformat(), trade_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_option_trades(limit=100):
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM options_trades ORDER BY created_at DESC LIMIT ?", (limit,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_open_option_trades():
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT * FROM options_trades
+           WHERE status IN ('pending','filled')
+           ORDER BY created_at DESC"""
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]

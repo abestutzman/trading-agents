@@ -428,7 +428,7 @@ from utils.data_fetcher import DataFetcher
 from utils.portfolio import PortfolioManager
 from agents import (
     MacroAgent, FundamentalAgent, TechnicalAgent, SentimentAgent,
-    BullResearcher, BearResearcher, RiskManager, HeadTrader, HedgeAgent,
+    BullResearcher, BearResearcher, RiskManager, HeadTrader, OptionsAgent,
 )
 
 fetcher   = DataFetcher()
@@ -523,7 +523,6 @@ def run_full_analysis(ticker: str) -> dict:
         ("Bear Researcher — building short case…",            BearResearcher,    "bear_analysis"),
         ("Risk Manager — sizing position (Opus)…",            RiskManager,       "risk_analysis"),
         ("Head Trader — final decision (Opus)…",              HeadTrader,        "trader_analysis"),
-        ("Hedge Agent — checking portfolio balance (Opus)…",  HedgeAgent,        "hedge_analysis"),
     ]
 
     for label, AgentCls, key in steps:
@@ -533,6 +532,17 @@ def run_full_analysis(ticker: str) -> dict:
             db.log_decision(ticker, r.get("agent", key), r.get("signal") or r.get("action"),
                             r.get("confidence") or r.get("risk_score"),
                             r.get("reasoning") or r.get("bull_thesis") or r.get("bear_thesis"), r)
+
+    # ── Options Agent — fetch live chain then analyze ─────────────────────────
+    from utils.tradier import get_options_chain
+    with st.spinner("🎯 Options Agent — fetching live options chain…"):
+        data["options_chain"] = get_options_chain(ticker)
+        options_r = OptionsAgent().analyze(data)
+        data["options_analysis"] = options_r
+        db.log_decision(ticker, options_r.get("agent", "Options Agent"),
+                        options_r.get("preferred"),
+                        None,
+                        options_r.get("reasoning"), options_r)
 
     return data
 
@@ -639,11 +649,11 @@ with st.sidebar:
 
 
 def _render_analysis_result(result: dict):
-    ticker   = result.get("ticker", "")
-    price    = result.get("current_price", 0)
-    trader_r = result.get("trader_analysis", {})
-    risk_r   = result.get("risk_analysis", {})
-    hedge_r  = result.get("hedge_analysis", {})
+    ticker    = result.get("ticker", "")
+    price     = result.get("current_price", 0)
+    trader_r  = result.get("trader_analysis", {})
+    risk_r    = result.get("risk_analysis", {})
+    options_r = result.get("options_analysis", {})
     action   = trader_r.get("action", "HOLD")
 
     # Header metrics
@@ -744,13 +754,64 @@ def _render_analysis_result(result: dict):
         )
     with t2:
         if action != "HOLD" and risk_r.get("approved"):
-            if st.button(f"Execute {action} Trade", type="primary", use_container_width=True):
+            # ── Stock Trade ──────────────────────────────────────────────────
+            if st.button(f"🏦 Execute {action} (Stock)", type="primary", use_container_width=True):
                 with st.spinner("Submitting bracket order…"):
                     order = execute_trade(ticker, trader_r)
                 if order.get("status") == "error":
                     st.error(f"Order failed: {order.get('error')}")
                 else:
                     st.success(f"✅ Submitted! Order ID: {order.get('order_id','?')}")
+
+            # ── Options Trade ────────────────────────────────────────────────
+            opts_ok   = options_r.get("options_available", False)
+            preferred = options_r.get("preferred", "stock")
+            struct    = options_r.get("recommendation", "none")
+            sd        = options_r.get("structure_detail", {})
+            leg1_sym  = sd.get("leg1_symbol", "")
+            leg1_act  = sd.get("leg1_action", "buy")
+            leg1_prem = float(sd.get("leg1_premium", 0) or 0)
+            n_contr   = int(options_r.get("contracts_suggested", 1) or 1)
+
+            if opts_ok and struct != "none" and leg1_sym:
+                tradier_side = "buy_to_open" if leg1_act == "buy" else "sell_to_open"
+                btn_label    = f"🎯 Execute {struct.replace('_',' ').title()} (Options)"
+                if preferred == "options":
+                    btn_label = "🎯 ★ " + btn_label[3:]   # star = agent-preferred
+
+                if st.button(btn_label, use_container_width=True):
+                    from utils.tradier import submit_option_order
+                    with st.spinner("Submitting options order to Tradier sandbox…"):
+                        ord_r = submit_option_order(
+                            ticker      = ticker,
+                            option_symbol = leg1_sym,
+                            side        = tradier_side,
+                            quantity    = n_contr,
+                            price       = leg1_prem,
+                        )
+                    if ord_r.get("status") == "error":
+                        st.error(f"Options order failed: {ord_r.get('error')}")
+                    else:
+                        db.log_option_trade(
+                            ticker         = ticker,
+                            option_symbol  = leg1_sym,
+                            action         = tradier_side,
+                            quantity       = n_contr,
+                            limit_price    = leg1_prem,
+                            status         = ord_r.get("status", "ok"),
+                            tradier_order_id = ord_r.get("order_id"),
+                            expiration     = options_r.get("expiration"),
+                            strike         = sd.get("leg1_strike"),
+                            option_type    = sd.get("leg1_type"),
+                            structure      = struct,
+                            notes          = options_r.get("reasoning", "")[:400],
+                        )
+                        st.success(f"✅ Options order submitted! ID: {ord_r.get('order_id','?')}")
+            elif opts_ok and struct == "none":
+                st.info("🎯 Options Agent: No options play (IV too high or signals mixed)")
+            elif not opts_ok:
+                st.warning(f"🎯 Options unavailable: {options_r.get('error','no data')}")
+
         elif not risk_r.get("approved"):
             st.error(f"Vetoed: {risk_r.get('veto_reason') or 'risk controls'}")
         else:
@@ -760,24 +821,79 @@ def _render_analysis_result(result: dict):
                 db.add_to_watchlist(ticker)
                 st.success(f"{ticker} added")
 
-    # Hedge alert
-    if hedge_r.get("hedge_needed"):
-        urgency = hedge_r.get("urgency", "LOW")
-        uc = {"HIGH": "#b91c1c", "MEDIUM": "#b45309", "LOW": "#15803d"}.get(urgency, "#64748b")
-        recs_html = "".join(
-            f'<div style="padding:7px 0;border-bottom:1px solid #f1f5f9;color:#334155;">'
-            f'{badge_action(r.get("action","?"))} <b style="color:#0f172a;">{r.get("instrument","?")}</b>'
-            f' ({r.get("allocation_pct","?")}% alloc) — {r.get("rationale","")}</div>'
-            for r in hedge_r.get("recommendations", [])
-        )
-        st.markdown("### Hedge Agent Alert")
+    # ── 🎯 Options Agent Card ────────────────────────────────────────────────
+    st.markdown("### 🎯 Options Agent")
+    if not options_r.get("options_available", False):
         st.markdown(
-            f'<div class="card" style="border-left:4px solid {uc};">'
-            f'<div class="card-title">Hedge Needed — Urgency: '
-            f'<span style="color:{uc};">{urgency}</span></div>'
-            f'<div style="font-size:13px;color:#334155;margin-bottom:10px;">'
-            f'{hedge_r.get("reasoning","")}</div>'
-            f'{recs_html}</div>', unsafe_allow_html=True)
+            f'<div class="card" style="border-left:4px solid #94a3b8;">'
+            f'<div class="card-title" style="color:#64748b;">Options Data Unavailable</div>'
+            f'<div style="font-size:13px;color:#64748b;">{options_r.get("error","—")}</div>'
+            f'</div>', unsafe_allow_html=True)
+    else:
+        struct    = options_r.get("recommendation", "none")
+        preferred = options_r.get("preferred", "stock")
+        pref_clr  = "#15803d" if preferred == "options" else "#334155"
+        dte       = options_r.get("dte", 0)
+        iv_pct    = options_r.get("atm_iv_pct", 0)
+        exp       = options_r.get("expiration", "N/A")
+        sd        = options_r.get("structure_detail", {})
+        greeks    = options_r.get("greeks", {})
+        cost      = options_r.get("cost_per_contract", "N/A")
+        n_contr   = options_r.get("contracts_suggested", "N/A")
+        max_pft   = options_r.get("max_profit", "N/A")
+        max_loss  = options_r.get("max_loss", "N/A")
+        beven     = options_r.get("breakeven", "N/A")
+
+        # Leg display
+        leg1 = (f'{sd.get("leg1_action","").upper()} {sd.get("leg1_type","").upper()} '
+                f'${sd.get("leg1_strike","?")} @ ${sd.get("leg1_premium","?")}')
+        leg2 = ""
+        if sd.get("leg2_symbol"):
+            leg2 = (f' / {sd.get("leg2_action","").upper()} {sd.get("leg2_type","").upper()} '
+                    f'${sd.get("leg2_strike","?")} @ ${sd.get("leg2_premium","?")}')
+
+        atm_call = options_r.get("atm_call", {})
+        atm_put  = options_r.get("atm_put", {})
+        greeks_html = ""
+        if greeks:
+            greeks_html = (
+                f'<div style="display:flex;gap:20px;font-size:12px;color:#334155;margin-top:8px;">'
+                f'<span>Δ <b>{greeks.get("delta","?")}</b></span>'
+                f'<span>Γ <b>{greeks.get("gamma","?")}</b></span>'
+                f'<span>Θ <b>{greeks.get("theta","?")}</b>/day</span>'
+                f'<span>V <b>{greeks.get("vega","?")}</b></span>'
+                f'</div>'
+            )
+
+        st.markdown(
+            f'<div class="card" style="border-left:4px solid #7c3aed;">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+            f'<div class="card-title" style="color:#7c3aed;">'
+            f'{struct.replace("_"," ").title() if struct != "none" else "No Play"}</div>'
+            f'<div style="font-size:13px;font-weight:700;color:{pref_clr};">'
+            f'{"★ Options Preferred" if preferred == "options" else "Stock Preferred"}</div>'
+            f'</div>'
+            f'<div style="font-size:13px;color:#64748b;margin:4px 0;">'
+            f'Exp: <b>{exp}</b> ({dte} DTE) · ATM IV: <b>{iv_pct:.1f}%</b>'
+            f'</div>'
+            f'<div style="font-size:13px;color:#334155;margin-top:8px;">'
+            f'<b>Structure:</b> {leg1}{leg2}'
+            f'</div>'
+            f'{greeks_html}'
+            f'<div style="display:flex;gap:24px;font-size:12px;color:#334155;margin-top:10px;">'
+            f'<span>Cost/contract: <b>${cost}</b></span>'
+            f'<span>Contracts: <b>{n_contr}</b></span>'
+            f'<span>Max Profit: <b style="color:#15803d;">'
+            f'{"unlimited" if max_pft == "unlimited" else f"${max_pft}"}</b></span>'
+            f'<span>Max Loss: <b style="color:#b91c1c;">${max_loss}</b></span>'
+            f'<span>Breakeven: <b>${beven}</b></span>'
+            f'</div>'
+            f'<div style="font-size:12px;color:#64748b;margin-top:8px;">'
+            f'{options_r.get("options_vs_stock","")}</div>'
+            f'<hr style="border-color:#f1f5f9;margin:10px 0;">'
+            f'<div style="font-size:12px;color:#64748b;">'
+            f'{(options_r.get("reasoning","") or "")[:300]}</div>'
+            f'</div>', unsafe_allow_html=True)
 
     # Price chart
     st.markdown("### Price Chart")
@@ -1311,9 +1427,11 @@ elif page == "Trade Journal":
     tab_t, tab_d, tab_p = st.tabs(["Trades", "Decision Log", "Agent Performance"])
 
     with tab_t:
+        # ── Stock Trades (Alpaca) ─────────────────────────────────────────────
+        st.markdown("#### Stock Trades (Alpaca)")
         trades = db.get_trades(100)
         if not trades:
-            st.info("No trades logged yet.")
+            st.info("No stock trades logged yet.")
         else:
             df_t = pd.DataFrame(trades)
             cols = ["ticker","action","quantity","entry_price","stop_loss","take_profit","status","pnl","created_at"]
@@ -1327,7 +1445,7 @@ elif page == "Trade Journal":
 
             st.dataframe(
                 df_s.style.map(_style_pnl, subset=["Pnl"] if "Pnl" in df_s.columns else []),
-                use_container_width=True, height=400,
+                use_container_width=True, height=320,
             )
 
             closed = [t for t in trades if t.get("pnl") is not None]
@@ -1344,7 +1462,7 @@ elif page == "Trade Journal":
                     fill="tozeroy", fillcolor="rgba(37,99,235,.08)",
                 ))
                 fig.update_layout(
-                    title="Cumulative P&L", height=300,
+                    title="Cumulative P&L (Stock)", height=260,
                     paper_bgcolor="white", plot_bgcolor="white",
                     xaxis=dict(gridcolor="#f1f5f9", color="#334155"),
                     yaxis=dict(gridcolor="#f1f5f9", color="#334155", tickprefix="$"),
@@ -1352,6 +1470,73 @@ elif page == "Trade Journal":
                     margin=dict(l=10,r=10,t=40,b=10),
                 )
                 st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("---")
+
+        # ── Options Trades (Tradier Sandbox) ─────────────────────────────────
+        st.markdown("#### 🎯 Options Trades (Tradier Sandbox)")
+        opt_trades = db.get_option_trades(100)
+        if not opt_trades:
+            st.info("No options trades logged yet.")
+        else:
+            dfo = pd.DataFrame(opt_trades)
+            ocols = ["ticker","option_symbol","action","quantity","limit_price",
+                     "structure","status","pnl","expiration","strike","option_type","created_at"]
+            ocols = [c for c in ocols if c in dfo.columns]
+            dfo_s = dfo[ocols].copy()
+            dfo_s.columns = [c.replace("_"," ").title() for c in ocols]
+            st.dataframe(
+                dfo_s.style.map(_style_pnl, subset=["Pnl"] if "Pnl" in dfo_s.columns else []),
+                use_container_width=True, height=280,
+            )
+
+        st.markdown("---")
+
+        # ── Open Options Positions (live from Tradier) ────────────────────────
+        st.markdown("#### 🎯 Open Options Positions (Live from Tradier)")
+        from config import TRADIER_SANDBOX_TOKEN as _TRAD_TOKEN
+        if not _TRAD_TOKEN:
+            st.info("Add TRADIER_SANDBOX_TOKEN to .env to see live options positions.")
+        else:
+            from utils.tradier import get_option_positions, get_option_quote
+            with st.spinner("Fetching positions from Tradier sandbox…"):
+                open_opts = get_option_positions()
+            if not open_opts:
+                st.info("No open options positions in Tradier sandbox.")
+            else:
+                rows_html = ""
+                total_pnl = 0.0
+                for pos in open_opts:
+                    sym      = pos["symbol"]
+                    qty      = pos["quantity"]
+                    cost     = pos["cost_basis"]
+                    quote    = get_option_quote(sym)
+                    curr_mid = quote.get("mid", 0)
+                    curr_val = curr_mid * qty * 100
+                    pnl_pos  = curr_val - cost
+                    total_pnl += pnl_pos
+                    pnl_clr  = "#15803d" if pnl_pos >= 0 else "#b91c1c"
+                    rows_html += (
+                        f'<tr>'
+                        f'<td style="font-size:12px;color:#0f172a;font-family:monospace;">{sym}</td>'
+                        f'<td style="color:#334155;">{qty}</td>'
+                        f'<td style="color:#334155;">${cost:,.2f}</td>'
+                        f'<td style="color:#334155;">${curr_mid:.2f}</td>'
+                        f'<td style="color:{pnl_clr};font-weight:700;">${pnl_pos:+,.2f}</td>'
+                        f'<td style="color:#64748b;font-size:11px;">{pos.get("date_acquired","")[:10]}</td>'
+                        f'</tr>'
+                    )
+                pnl_tot_clr = "#15803d" if total_pnl >= 0 else "#b91c1c"
+                st.markdown(
+                    f'<div class="card" style="padding:0;overflow:hidden;">'
+                    f'<table class="stbl"><thead><tr>'
+                    f'<th>Symbol</th><th>Qty</th><th>Cost Basis</th>'
+                    f'<th>Current Mid</th><th>Unrealized P&L</th><th>Opened</th>'
+                    f'</tr></thead><tbody>{rows_html}</tbody></table>'
+                    f'<div style="padding:10px 16px;font-size:13px;color:#334155;">'
+                    f'Total Unrealized P&L: '
+                    f'<span style="color:{pnl_tot_clr};font-weight:700;">${total_pnl:+,.2f}</span>'
+                    f'</div></div>', unsafe_allow_html=True)
 
     with tab_d:
         tf = st.text_input("Filter by ticker", placeholder="Leave blank for all").upper().strip()
@@ -1476,12 +1661,13 @@ elif page == "Settings":
             st.success("Settings saved!")
 
     st.markdown("### API Status")
-    from config import FINNHUB_API_KEY, NEWS_API_KEY
+    from config import FINNHUB_API_KEY, NEWS_API_KEY, TRADIER_SANDBOX_TOKEN
     checks = {
         "Anthropic":  bool(ANTHROPIC_API_KEY),
         "Finnhub":    bool(FINNHUB_API_KEY),
         "Polygon.io": bool(POLYGON_API_KEY),
         "Alpaca":     portfolio.connected,
+        "Tradier":    bool(TRADIER_SANDBOX_TOKEN),
         "NewsAPI":    bool(NEWS_API_KEY),
     }
     cols = st.columns(len(checks))
@@ -1495,12 +1681,15 @@ elif page == "Settings":
 
     st.markdown(
         '<div class="card">'
-        '<div class="card-title">AI Trading Agents v2.0</div>'
+        '<div class="card-title">AI Trading Agents v3.0</div>'
         '<p style="color:#334155;font-size:13px;line-height:1.6;">'
         '<b>Screener:</b> Haiku-only (6 agents) — cost-efficient one-shot scan.<br>'
-        '<b>Full Analysis:</b> All 9 agents including Opus — triggered manually per ticker.<br>'
+        '<b>Full Analysis:</b> 9 agents (Haiku + Opus) + Options Agent — all 10 run per ticker.<br>'
         '<b>Technical data:</b> Polygon.io (primary) → yfinance fallback.<br>'
-        '<b>News:</b> Finnhub live headlines fed directly to Sentiment Agent.'
+        '<b>News/Earnings/Insiders:</b> Finnhub live data.<br>'
+        '<b>Macro:</b> FRED API (FFR, CPI, unemployment, PCE, GDP).<br>'
+        '<b>Fundamentals:</b> Alpha Vantage balance sheet (quarterly).<br>'
+        '<b>Options:</b> Tradier sandbox — live chain, Greeks, execution.'
         '</p></div>',
         unsafe_allow_html=True,
     )
