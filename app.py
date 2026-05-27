@@ -26,112 +26,358 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-  /* ── Page background ── */
-  .stApp { background: #f1f5f9; }
+/* ════════════════════════════════════════════════════════════════════════════
+   LIGHT THEME FOUNDATION
+   config.toml sets base="light" which handles native widgets.
+   These overrides lock down every remaining surface that can bleed dark.
+   ════════════════════════════════════════════════════════════════════════════ */
 
-  /* ── Sidebar ── */
-  section[data-testid="stSidebar"] { background: #0f172a; }
-  section[data-testid="stSidebar"] .stMarkdown p,
-  section[data-testid="stSidebar"] .stMarkdown h1,
-  section[data-testid="stSidebar"] .stMarkdown h2,
-  section[data-testid="stSidebar"] .stMarkdown h3,
-  section[data-testid="stSidebar"] label,
-  section[data-testid="stSidebar"] .stRadio label span { color: #e2e8f0 !important; }
+/* ── Root canvas ── */
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"],
+[data-testid="stVerticalBlock"],
+[data-testid="stHorizontalBlock"],
+[data-testid="column"],
+.main, .block-container {
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+}
 
-  /* ── White cards ── */
-  .card {
-    background: #ffffff;
-    border-radius: 12px;
-    padding: 20px 24px;
-    box-shadow: 0 1px 4px rgba(0,0,0,.08);
-    margin-bottom: 16px;
-  }
-  .card-title {
-    font-size: 11px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: .08em;
-    margin-bottom: 6px;
-  }
-  .card-value {
-    font-size: 26px;
-    font-weight: 700;
-    color: #0f172a;
-    line-height: 1.2;
-  }
+/* ── Header bar ── */
+[data-testid="stHeader"] {
+  background: #f1f5f9 !important;
+  border-bottom: 1px solid #e2e8f0;
+}
 
-  /* ── Badges ── */
-  .b-long    { display:inline-block; background:#dcfce7; color:#15803d; border-radius:6px;
-               padding:2px 10px; font-size:12px; font-weight:700; }
-  .b-short   { display:inline-block; background:#fee2e2; color:#b91c1c; border-radius:6px;
-               padding:2px 10px; font-size:12px; font-weight:700; }
-  .b-hold    { display:inline-block; background:#fef3c7; color:#b45309; border-radius:6px;
-               padding:2px 10px; font-size:12px; font-weight:700; }
-  .b-bull    { display:inline-block; background:#dcfce7; color:#15803d; border-radius:6px;
-               padding:2px 9px; font-size:11px; font-weight:700; }
-  .b-bear    { display:inline-block; background:#fee2e2; color:#b91c1c; border-radius:6px;
-               padding:2px 9px; font-size:11px; font-weight:700; }
-  .b-neutral { display:inline-block; background:#f1f5f9; color:#334155; border-radius:6px;
-               padding:2px 9px; font-size:11px; font-weight:700; }
+/* ── All body text ── */
+p, span, div, label, li, td, th, h1, h2, h3, h4, h5, h6 {
+  color: #1e293b;
+}
 
-  /* ── Agent cards ── */
-  .agent-card {
-    background: #ffffff;
-    border-radius: 10px;
-    padding: 14px 18px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.06);
-    margin-bottom: 10px;
-    border-left: 4px solid #e2e8f0;
-  }
-  .agent-bull    { border-left-color: #22c55e !important; }
-  .agent-bear    { border-left-color: #ef4444 !important; }
-  .agent-neutral { border-left-color: #94a3b8 !important; }
-  .agent-name    { font-size: 13px; font-weight: 700; color: #0f172a; }
-  .agent-reason  { font-size: 12px; color: #334155; margin-top: 6px; line-height: 1.55; }
-  hr.div { border: none; border-top: 1px solid #f1f5f9; margin: 10px 0; }
+/* Streamlit markdown containers */
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stMarkdownContainer"] span,
+[data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3,
+[data-testid="stMarkdownContainer"] strong {
+  color: #1e293b !important;
+}
 
-  /* ── Score bar ── */
-  .score-wrap { margin: 6px 0 2px; }
-  .score-track { background: #e2e8f0; border-radius: 4px; height: 8px; position: relative; }
-  .score-fill  { border-radius: 4px; height: 8px; transition: width .3s; }
-  .score-label { font-size: 11px; color: #64748b; margin-top: 3px; }
+/* ── Inputs / Selects / Text areas ── */
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-baseweb="input"] input,
+[data-baseweb="textarea"] textarea {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+}
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stTextArea"] textarea::placeholder {
+  color: #94a3b8 !important;
+}
 
-  /* ── Screener table ── */
-  .stbl { width: 100%; border-collapse: collapse; }
-  .stbl th { background: #f8fafc; color: #64748b; font-size: 11px; font-weight: 700;
-             text-transform: uppercase; letter-spacing: .05em;
-             padding: 10px 14px; text-align: left; border-bottom: 2px solid #e2e8f0; }
-  .stbl td { padding: 10px 14px; font-size: 13px; color: #0f172a;
-             border-bottom: 1px solid #f1f5f9; }
-  .stbl tr:hover td { background: #f8fafc; }
+/* Selectbox */
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-baseweb="select"] div {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+}
+[data-baseweb="popover"] ul,
+[data-baseweb="popover"] li {
+  background: #ffffff !important;
+  color: #1e293b !important;
+}
 
-  /* ── Trade ticket ── */
-  .ticket {
-    background: #ffffff; border-radius: 12px; padding: 24px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.08); border: 2px solid #e2e8f0;
-  }
-  .ticket-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 14px; }
-  .ticket-label { font-size: 11px; color: #64748b; font-weight: 700;
-                  text-transform: uppercase; letter-spacing: .05em; }
-  .ticket-val   { font-size: 22px; font-weight: 700; color: #0f172a; margin-top: 2px; }
+/* ── Labels above inputs ── */
+[data-testid="stTextInput"] label,
+[data-testid="stSelectbox"] label,
+[data-testid="stNumberInput"] label,
+[data-testid="stTextArea"] label,
+[data-testid="stSlider"] label,
+[data-testid="stRadio"] label,
+[data-testid="stCheckbox"] label {
+  color: #475569 !important;
+  font-weight: 600 !important;
+}
 
-  /* ── No-opportunity banner ── */
-  .sit-out {
-    background: #fffbeb; border: 2px solid #fcd34d; border-radius: 12px;
-    padding: 28px 32px; text-align: center; margin: 24px 0;
-  }
-  .sit-out h2 { font-size: 22px; color: #92400e; margin: 0 0 8px; }
-  .sit-out p  { font-size: 14px; color: #78350f; margin: 0; }
+/* ── Buttons ── */
+[data-testid="stButton"] button[kind="primary"] {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+}
+[data-testid="stButton"] button[kind="secondary"],
+[data-testid="stButton"] button:not([kind]) {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+}
+[data-testid="stButton"] button:hover {
+  opacity: 0.88 !important;
+}
 
-  /* ── Session summary ── */
-  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
-  .summary-cell { background: #ffffff; border-radius: 10px; padding: 16px 20px;
-                  box-shadow: 0 1px 3px rgba(0,0,0,.06); }
-  .summary-label { font-size: 11px; color: #64748b; font-weight: 700;
-                   text-transform: uppercase; letter-spacing: .05em; }
-  .summary-val   { font-size: 26px; font-weight: 700; color: #0f172a; margin-top: 4px; }
-  .summary-sub   { font-size: 11px; color: #64748b; margin-top: 2px; }
+/* ── Tabs ── */
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+  background: transparent !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+}
+[data-testid="stTabs"] [data-baseweb="tab"] {
+  background: transparent !important;
+  color: #64748b !important;
+  font-weight: 600 !important;
+  border-bottom: 2px solid transparent !important;
+}
+[data-testid="stTabs"] [aria-selected="true"] {
+  color: #1e293b !important;
+  border-bottom-color: #2563eb !important;
+}
+[data-testid="stTabsContent"] {
+  background: transparent !important;
+  color: #1e293b !important;
+}
+
+/* ── Expander ── */
+[data-testid="stExpander"] {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+}
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] summary p,
+[data-testid="stExpander"] summary span {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+}
+[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+  background: #ffffff !important;
+  color: #1e293b !important;
+}
+
+/* ── Metrics ── */
+[data-testid="stMetric"] {
+  background: #ffffff !important;
+  border-radius: 10px !important;
+  padding: 14px 18px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06) !important;
+}
+[data-testid="stMetricLabel"] {
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .05em !important;
+}
+[data-testid="stMetricValue"] {
+  color: #1e293b !important;
+  font-weight: 700 !important;
+}
+[data-testid="stMetricDelta"] {
+  font-weight: 600 !important;
+}
+
+/* ── Dataframe / Table ── */
+[data-testid="stDataFrame"] iframe,
+[data-testid="stDataFrame"] {
+  background: #ffffff !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+}
+.dvn-scroller, .dvn-scroller * {
+  background: #ffffff !important;
+  color: #1e293b !important;
+}
+
+/* ── Slider ── */
+[data-testid="stSlider"] [data-baseweb="slider"] [role="slider"] {
+  background: #2563eb !important;
+}
+
+/* ── Alert / Info / Warning / Error boxes ── */
+[data-testid="stAlert"] {
+  border-radius: 8px !important;
+  color: #1e293b !important;
+}
+[data-testid="stAlert"][data-baseweb="notification"] {
+  background: #eff6ff !important;
+}
+
+/* ── Progress bar ── */
+[data-testid="stProgressBar"] > div {
+  background: #e2e8f0 !important;
+  border-radius: 4px !important;
+}
+[data-testid="stProgressBar"] > div > div {
+  background: #2563eb !important;
+  border-radius: 4px !important;
+}
+
+/* ── Spinner ── */
+[data-testid="stSpinner"] p { color: #475569 !important; }
+
+/* ── Form ── */
+[data-testid="stForm"] {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+}
+
+/* ── Radio buttons ── */
+[data-testid="stRadio"] div[role="radiogroup"] label {
+  color: #1e293b !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   SIDEBAR  (intentionally dark navy)
+   ════════════════════════════════════════════════════════════════════════════ */
+[data-testid="stSidebar"],
+[data-testid="stSidebar"] > div {
+  background: #0f172a !important;
+}
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] span {
+  color: #e2e8f0 !important;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label,
+[data-testid="stSidebar"] [data-testid="stRadio"] span,
+[data-testid="stSidebar"] [role="radiogroup"] label span {
+  color: #e2e8f0 !important;
+}
+[data-testid="stSidebar"] hr { border-color: #334155 !important; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   CUSTOM COMPONENTS
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── White card ── */
+.card {
+  background: #ffffff !important;
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b !important;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 6px;
+}
+.card-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1e293b !important;
+  line-height: 1.2;
+}
+
+/* ── Signal badges ── */
+.b-long    { display:inline-block; background:#dcfce7; color:#15803d !important;
+             border-radius:6px; padding:2px 10px; font-size:12px; font-weight:700; }
+.b-short   { display:inline-block; background:#fee2e2; color:#b91c1c !important;
+             border-radius:6px; padding:2px 10px; font-size:12px; font-weight:700; }
+.b-hold    { display:inline-block; background:#fef3c7; color:#92400e !important;
+             border-radius:6px; padding:2px 10px; font-size:12px; font-weight:700; }
+.b-bull    { display:inline-block; background:#dcfce7; color:#15803d !important;
+             border-radius:6px; padding:2px 9px; font-size:11px; font-weight:700; }
+.b-bear    { display:inline-block; background:#fee2e2; color:#b91c1c !important;
+             border-radius:6px; padding:2px 9px; font-size:11px; font-weight:700; }
+.b-neutral { display:inline-block; background:#f1f5f9; color:#475569 !important;
+             border: 1px solid #cbd5e1;
+             border-radius:6px; padding:2px 9px; font-size:11px; font-weight:700; }
+
+/* ── Agent cards ── */
+.agent-card {
+  background: #ffffff !important;
+  border-radius: 10px;
+  padding: 14px 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  margin-bottom: 10px;
+  border-left: 4px solid #e2e8f0;
+}
+.agent-bull    { border-left-color: #22c55e !important; }
+.agent-bear    { border-left-color: #ef4444 !important; }
+.agent-neutral { border-left-color: #94a3b8 !important; }
+.agent-name    { font-size: 13px; font-weight: 700; color: #1e293b !important; }
+.agent-reason  { font-size: 12px; color: #334155 !important; margin-top: 6px; line-height: 1.55; }
+hr.div { border: none; border-top: 1px solid #e2e8f0; margin: 10px 0; }
+
+/* ── Score bar ── */
+.score-wrap  { margin: 6px 0 2px; }
+.score-track { background: #e2e8f0; border-radius: 4px; height: 8px; position: relative; }
+.score-fill  { border-radius: 4px; height: 8px; transition: width .3s; }
+.score-label { font-size: 11px; color: #64748b !important; margin-top: 3px; }
+
+/* ── Screener table ── */
+.stbl { width: 100%; border-collapse: collapse; }
+.stbl th {
+  background: #f8fafc; color: #475569 !important;
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+  padding: 10px 14px; text-align: left;
+  border-bottom: 2px solid #e2e8f0;
+}
+.stbl td {
+  padding: 10px 14px; font-size: 13px;
+  color: #1e293b !important;
+  border-bottom: 1px solid #f1f5f9;
+}
+.stbl tr:hover td { background: #f8fafc; }
+
+/* ── Trade ticket ── */
+.ticket {
+  background: #ffffff !important;
+  border-radius: 12px; padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07);
+  border: 1px solid #e2e8f0;
+}
+.ticket-row   { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 14px; }
+.ticket-label { font-size: 11px; color: #64748b !important; font-weight: 700;
+                text-transform: uppercase; letter-spacing: .05em; }
+.ticket-val   { font-size: 22px; font-weight: 700; color: #1e293b !important; margin-top: 2px; }
+
+/* ── Sit-out banner ── */
+.sit-out {
+  background: #fffbeb; border: 2px solid #fcd34d;
+  border-radius: 12px; padding: 28px 32px;
+  text-align: center; margin: 24px 0;
+}
+.sit-out h2 { font-size: 22px; color: #92400e !important; margin: 0 0 8px; }
+.sit-out p  { font-size: 14px; color: #78350f !important; margin: 0; }
+
+/* ── Session summary grid ── */
+.summary-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 16px; margin-bottom: 20px;
+}
+.summary-cell {
+  background: #ffffff !important;
+  border-radius: 10px; padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.summary-label { font-size: 11px; color: #64748b !important; font-weight: 700;
+                 text-transform: uppercase; letter-spacing: .05em; }
+.summary-val   { font-size: 26px; font-weight: 700; color: #1e293b !important; margin-top: 4px; }
+.summary-sub   { font-size: 11px; color: #64748b !important; margin-top: 2px; }
 </style>
 """, unsafe_allow_html=True)
 
