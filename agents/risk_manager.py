@@ -60,7 +60,7 @@ Assess risk thoroughly and respond with JSON only:
   "risk_flags": ["flag1", "flag2"],
   "reasoning": "comprehensive risk assessment"
 }}"""
-        raw = self._call(prompt, max_tokens=3000)
+        raw = self._call(prompt, max_tokens=1000)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result

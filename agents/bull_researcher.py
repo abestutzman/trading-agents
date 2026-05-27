@@ -41,7 +41,7 @@ Construct the bull case. Respond with JSON only:
   "strongest_argument": "single best reason to be long",
   "bear_counterpoints_addressed": ["how to refute bear1", "how to refute bear2"]
 }}"""
-        raw = self._call(prompt)
+        raw = self._call(prompt, max_tokens=500)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result

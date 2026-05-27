@@ -1,12 +1,12 @@
 from .base_agent import BaseAgent
-from config import OPUS_MODEL
+from config import HAIKU_MODEL
 
 
 class HedgeAgent(BaseAgent):
     name = "Hedge Agent"
 
     def __init__(self):
-        super().__init__(OPUS_MODEL)
+        super().__init__(HAIKU_MODEL)
 
     def analyze(self, data: dict) -> dict:
         portfolio = data.get("portfolio", {})
@@ -61,7 +61,7 @@ Respond with JSON only:
   "portfolio_risk_assessment": "brief assessment",
   "reasoning": "explanation of hedge strategy"
 }}"""
-        raw = self._call(prompt, max_tokens=3000)
+        raw = self._call(prompt, max_tokens=500)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result

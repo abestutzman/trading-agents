@@ -56,7 +56,7 @@ Respond with JSON only:
   "key_weaknesses": ["wk1", "wk2"],
   "reasoning": "brief explanation citing specific real values"
 }}"""
-        raw = self._call(prompt)
+        raw = self._call(prompt, max_tokens=500)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result

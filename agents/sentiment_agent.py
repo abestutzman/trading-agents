@@ -49,7 +49,7 @@ Respond with JSON only:
   "headline_count_analyzed": {len(news[:5])},
   "reasoning": "cite specific headlines or metrics that drove your assessment"
 }}"""
-        raw = self._call(prompt)
+        raw = self._call(prompt, max_tokens=500)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result

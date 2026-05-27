@@ -31,7 +31,7 @@ Respond with JSON only:
   "reasoning": "brief explanation",
   "rate_environment": "restrictive" | "neutral" | "accommodative"
 }}"""
-        raw = self._call(prompt)
+        raw = self._call(prompt, max_tokens=500)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result

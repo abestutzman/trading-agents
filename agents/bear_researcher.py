@@ -40,7 +40,7 @@ Construct the bear case. Respond with JSON only:
   "strongest_argument": "single best reason to be short/avoid",
   "bull_counterpoints_addressed": ["how to refute bull1", "how to refute bull2"]
 }}"""
-        raw = self._call(prompt)
+        raw = self._call(prompt, max_tokens=500)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result

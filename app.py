@@ -168,9 +168,11 @@ _sdef("risk_config", {
     "stop_loss_pct":     DEFAULT_STOP_LOSS_PCT,
     "take_profit_pct":   DEFAULT_TAKE_PROFIT_PCT,
 })
-_sdef("screener_output",  None)   # dict returned by Screener.run()
-_sdef("analysis_result",  None)   # full 9-agent result for selected ticker
+_sdef("screener_output",    None)   # dict returned by Screener.run()
+_sdef("analysis_result",    None)   # full 9-agent result for selected ticker
 _sdef("autonomous_running", False)
+# Watchlist cache — populated lazily on first Watchlist page visit
+# (not pre-loaded here so the DB read only happens when the page is opened)
 
 
 # ── HTML helpers ──────────────────────────────────────────────────────────────
@@ -485,10 +487,18 @@ def _render_analysis_result(result: dict):
     if news:
         st.markdown("### Headlines (fed to Sentiment Agent)")
         for n in news[:5]:
+            dt_raw = n.get("datetime", "")
+            if isinstance(dt_raw, int):
+                try:
+                    dt_str = datetime.utcfromtimestamp(dt_raw).strftime("%Y-%m-%d")
+                except (OSError, OverflowError, ValueError):
+                    dt_str = ""
+            else:
+                dt_str = str(dt_raw)[:10]
             st.markdown(
                 f'<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">'
                 f'<span style="font-size:11px;color:#64748b;font-weight:600;">'
-                f'{n.get("source","?")} &nbsp;·&nbsp; {n.get("datetime","")[:10]}</span><br>'
+                f'{n.get("source","?")} &nbsp;·&nbsp; {dt_str}</span><br>'
                 f'<span style="font-size:13px;color:#0f172a;">{n.get("headline","")}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
@@ -837,6 +847,12 @@ elif page == "Autonomous":
 # PAGE: WATCHLIST
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Watchlist":
+    # ── Session state cache so add/delete never re-fetches all prices ─────────
+    if "wl_list" not in st.session_state:
+        st.session_state.wl_list   = db.get_watchlist()
+    if "wl_prices" not in st.session_state:
+        st.session_state.wl_prices = {}
+
     st.markdown("# Watchlist")
 
     ca, cb = st.columns([3, 1])
@@ -845,24 +861,34 @@ elif page == "Watchlist":
     with cb:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("Add", use_container_width=True) and new_t:
-            db.add_to_watchlist(new_t); st.rerun()
+            if new_t not in st.session_state.wl_list:
+                db.add_to_watchlist(new_t)
+                st.session_state.wl_list.append(new_t)
+            # No st.rerun() — Streamlit's natural rerun after the button click
+            # handles the UI update; price cache avoids re-fetching existing tickers
 
-    watchlist = db.get_watchlist()
+    watchlist = st.session_state.wl_list
     if not watchlist:
         st.info("Your watchlist is empty. Add tickers above.")
     else:
-        st.button("Refresh Prices")
-        rows = []
+        if st.button("🔄 Refresh Prices"):
+            st.session_state.wl_prices = {}   # bust cache, next loop re-fetches all
+
+        # Only fetch prices for tickers not already in the cache
         for t in watchlist:
-            p    = fetcher.get_current_price(t)
-            tech = fetcher.get_technicals(t)
-            rows.append({
-                "Ticker": t, "Price": p,
-                "1D%":    tech.get("ret_1d"),  "5D%":    tech.get("ret_5d"),
-                "RSI":    tech.get("rsi"),
-                "vs SMA50":  tech.get("pct_vs_sma50"),
-                "vs SMA200": tech.get("pct_vs_sma200"),
-            })
+            if t not in st.session_state.wl_prices:
+                p    = fetcher.get_current_price(t)
+                tech = fetcher.get_technicals(t)
+                st.session_state.wl_prices[t] = {
+                    "Price":    p,
+                    "1D%":      tech.get("ret_1d"),
+                    "5D%":      tech.get("ret_5d"),
+                    "RSI":      tech.get("rsi"),
+                    "vs SMA50":  tech.get("pct_vs_sma50"),
+                    "vs SMA200": tech.get("pct_vs_sma200"),
+                }
+
+        rows = [{"Ticker": t, **st.session_state.wl_prices.get(t, {})} for t in watchlist]
 
         def _pc(v):
             v = v or 0
@@ -871,14 +897,14 @@ elif page == "Watchlist":
 
         trows = ""
         for r in rows:
-            rsi   = r["RSI"] or 0
+            rsi   = r.get("RSI") or 0
             rsi_c = "#b91c1c" if rsi > 70 else "#15803d" if rsi < 30 else "#334155"
             trows += (
                 f'<tr><td><b style="color:#0f172a;">{r["Ticker"]}</b></td>'
-                f'<td style="color:#0f172a;">${(r["Price"] or 0):,.2f}</td>'
-                + _pc(r["1D%"]) + _pc(r["5D%"])
+                f'<td style="color:#0f172a;">${(r.get("Price") or 0):,.2f}</td>'
+                + _pc(r.get("1D%")) + _pc(r.get("5D%"))
                 + f'<td style="color:{rsi_c};font-weight:600;">{rsi:.1f}</td>'
-                + _pc(r["vs SMA50"]) + _pc(r["vs SMA200"])
+                + _pc(r.get("vs SMA50")) + _pc(r.get("vs SMA200"))
                 + f'<td></td></tr>'
             )
 
@@ -892,10 +918,13 @@ elif page == "Watchlist":
         )
         st.markdown("**Remove:**")
         cols = st.columns(min(len(watchlist), 6))
-        for i, t in enumerate(watchlist):
+        for i, t in enumerate(watchlist[:]):   # slice copy so loop isn't affected by deletion
             with cols[i % len(cols)]:
                 if st.button(f"✕ {t}", key=f"rm_{t}"):
-                    db.remove_from_watchlist(t); st.rerun()
+                    db.remove_from_watchlist(t)
+                    st.session_state.wl_list   = [x for x in st.session_state.wl_list if x != t]
+                    st.session_state.wl_prices.pop(t, None)
+                    # No st.rerun() — natural rerun is fast because prices are cached
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -65,7 +65,7 @@ Make the definitive trade decision. You can adjust stop/target within reason. Re
   "invalidation": "what would invalidate this trade",
   "reasoning": "comprehensive decision rationale"
 }}"""
-        raw = self._call(prompt, max_tokens=3000)
+        raw = self._call(prompt, max_tokens=1000)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result

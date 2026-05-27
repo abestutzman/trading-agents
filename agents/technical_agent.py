@@ -49,7 +49,7 @@ Respond with JSON only:
   "entry_zone": {{"low": <number_or_null>, "high": <number_or_null>}},
   "reasoning": "brief explanation citing specific indicator values"
 }}"""
-        raw = self._call(prompt)
+        raw = self._call(prompt, max_tokens=500)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result
