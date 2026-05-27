@@ -616,6 +616,27 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
+    # Net long/short exposure
+    try:
+        port_sum      = portfolio.get_portfolio_summary()
+        long_exp      = port_sum.get("long_exposure_pct", 0)
+        short_exp     = port_sum.get("short_exposure_pct", 0)
+        net_exp       = long_exp - short_exp
+        net_clr       = "#4ade80" if net_exp >= 0 else "#f87171"
+        bias_label    = "LONG" if net_exp > 5 else "SHORT" if net_exp < -5 else "FLAT"
+        st.markdown(
+            f'<p style="color:#94a3b8;font-size:12px;margin:3px 0;">Net Exposure &nbsp;'
+            f'<span style="color:{net_clr};font-weight:700;font-size:13px;">'
+            f'{net_exp:+.1f}% ({bias_label})</span></p>'
+            f'<p style="color:#94a3b8;font-size:11px;margin:2px 0;">'
+            f'<span style="color:#4ade80;">L {long_exp:.1f}%</span>'
+            f' &nbsp;/&nbsp; '
+            f'<span style="color:#f87171;">S {short_exp:.1f}%</span></p>',
+            unsafe_allow_html=True,
+        )
+    except Exception:
+        pass
+
 
 def _render_analysis_result(result: dict):
     ticker   = result.get("ticker", "")
@@ -1002,6 +1023,49 @@ elif page == "Screener":
                     unsafe_allow_html=True,
                 )
 
+                # ── Sector Exposure of screener signals ──────────────────────
+                if display:
+                    from config import SECTOR_TICKER_MAP
+                    sector_long  = {}
+                    sector_short = {}
+                    for r in display:
+                        tk  = r.get("ticker","")
+                        sec = SECTOR_TICKER_MAP.get(tk, "Other")
+                        act = r.get("action","HOLD")
+                        if act == "LONG":
+                            sector_long[sec]  = sector_long.get(sec, 0) + 1
+                        elif act == "SHORT":
+                            sector_short[sec] = sector_short.get(sec, 0) + 1
+
+                    all_sectors = sorted(set(list(sector_long.keys()) + list(sector_short.keys())))
+                    if all_sectors:
+                        st.markdown("### Screener Signal Sector Exposure")
+                        df_exp = pd.DataFrame({
+                            "Sector": all_sectors,
+                            "LONG":  [sector_long.get(s, 0) for s in all_sectors],
+                            "SHORT": [-sector_short.get(s, 0) for s in all_sectors],  # negative for chart
+                        })
+                        fig_exp = go.Figure()
+                        fig_exp.add_trace(go.Bar(
+                            x=df_exp["Sector"], y=df_exp["LONG"],
+                            name="LONG", marker_color="#15803d",
+                        ))
+                        fig_exp.add_trace(go.Bar(
+                            x=df_exp["Sector"], y=df_exp["SHORT"],
+                            name="SHORT", marker_color="#b91c1c",
+                        ))
+                        fig_exp.update_layout(
+                            title="Signal Count by Sector",
+                            barmode="relative", height=300,
+                            paper_bgcolor="white", plot_bgcolor="white",
+                            xaxis=dict(color="#334155", tickangle=-30),
+                            yaxis=dict(color="#334155", title="# Signals"),
+                            legend=dict(orientation="h", y=1.1),
+                            font=dict(color="#334155"),
+                            margin=dict(l=10,r=10,t=60,b=80),
+                        )
+                        st.plotly_chart(fig_exp, use_container_width=True)
+
                 # ── Ticker selector → full 9-agent analysis ──────────────────
                 st.markdown("### Run Full Analysis on a Screener Result")
                 st.markdown('<p style="color:#64748b;font-size:13px;">Selects a ticker from the screener above and runs all 9 agents including Opus for a complete trade recommendation.</p>', unsafe_allow_html=True)
@@ -1244,7 +1308,7 @@ elif page == "Watchlist":
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Trade Journal":
     st.markdown("# Trade Journal")
-    tab_t, tab_d = st.tabs(["Trades", "Decision Log"])
+    tab_t, tab_d, tab_p = st.tabs(["Trades", "Decision Log", "Agent Performance"])
 
     with tab_t:
         trades = db.get_trades(100)
@@ -1301,6 +1365,89 @@ elif page == "Trade Journal":
             dfs = dfd[cd].copy()
             dfs.columns = [c.replace("_"," ").title() for c in cd]
             st.dataframe(dfs, use_container_width=True, height=500)
+
+    with tab_p:
+        st.markdown("### Agent Performance")
+        st.markdown(
+            '<p style="color:#64748b;font-size:13px;">'
+            'Alignment rate = how often an agent\'s signal matched the final trade action. '
+            'Win rate = % of aligned signals where the trade was profitable. '
+            'Requires at least one closed trade to populate.</p>',
+            unsafe_allow_html=True,
+        )
+        agent_stats = db.get_agent_stats()
+        if not agent_stats:
+            st.info("No closed trade data yet — run some analyses and close trades to see agent accuracy here.")
+        else:
+            dfa = pd.DataFrame(agent_stats)
+            # Style
+            def _style_rate(val):
+                if pd.isna(val): return ""
+                if val >= 0.7:  return "color:#15803d;font-weight:700"
+                if val >= 0.5:  return "color:#b45309;font-weight:600"
+                return "color:#b91c1c;font-weight:600"
+
+            display_cols = ["agent_name","total_signals","alignment_rate","win_rate","avg_confidence","total_pnl"]
+            display_cols = [c for c in display_cols if c in dfa.columns]
+            dfa_show = dfa[display_cols].copy()
+            dfa_show.columns = ["Agent","Signals","Alignment %","Win %","Avg Confidence","Total P&L ($)"]
+            # Convert rates to %
+            dfa_show["Alignment %"] = (dfa_show["Alignment %"] * 100).round(1)
+            dfa_show["Win %"]        = (dfa_show["Win %"] * 100).round(1)
+            dfa_show["Avg Confidence"] = (dfa_show["Avg Confidence"] * 100).round(1)
+
+            st.dataframe(
+                dfa_show.style
+                    .map(_style_rate, subset=["Alignment %","Win %"])
+                    .format({"Total P&L ($)": "${:+,.2f}"}),
+                use_container_width=True, height=320,
+            )
+
+            # Bar chart: alignment rate by agent
+            fig_a = px.bar(
+                dfa_show.sort_values("Alignment %", ascending=False),
+                x="Agent", y="Alignment %",
+                color="Alignment %",
+                color_continuous_scale=["#b91c1c","#f59e0b","#15803d"],
+                color_continuous_midpoint=50,
+                title="Agent Signal Alignment Rate (%)",
+                text="Alignment %",
+            )
+            fig_a.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+            fig_a.update_layout(
+                height=320, paper_bgcolor="white", plot_bgcolor="white",
+                coloraxis_showscale=False,
+                xaxis=dict(color="#334155"), yaxis=dict(color="#334155"),
+                font=dict(color="#334155"), margin=dict(l=10,r=10,t=40,b=10),
+            )
+            st.plotly_chart(fig_a, use_container_width=True)
+
+            # Daily P&L history
+            daily = db.get_daily_stats(30)
+            if daily:
+                dfd2 = pd.DataFrame(daily).sort_values("date")
+                dfd2["cum_pnl"] = dfd2["total_pnl"].cumsum()
+                fig_d = go.Figure()
+                fig_d.add_trace(go.Bar(
+                    x=dfd2["date"], y=dfd2["total_pnl"],
+                    name="Daily P&L",
+                    marker_color=["#15803d" if v >= 0 else "#b91c1c" for v in dfd2["total_pnl"]],
+                ))
+                fig_d.add_trace(go.Scatter(
+                    x=dfd2["date"], y=dfd2["cum_pnl"],
+                    name="Cumulative P&L", mode="lines",
+                    line=dict(color="#2563eb", width=2), yaxis="y2",
+                ))
+                fig_d.update_layout(
+                    title="30-Day P&L History",
+                    height=300, paper_bgcolor="white", plot_bgcolor="white",
+                    xaxis=dict(color="#334155"),
+                    yaxis=dict(color="#334155", title="Daily P&L ($)"),
+                    yaxis2=dict(color="#2563eb", title="Cumulative ($)", overlaying="y", side="right"),
+                    legend=dict(orientation="h", y=1.12),
+                    font=dict(color="#334155"), margin=dict(l=10,r=10,t=60,b=10),
+                )
+                st.plotly_chart(fig_d, use_container_width=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

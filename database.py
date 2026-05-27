@@ -221,3 +221,100 @@ def get_daily_pnl():
     ).fetchone()
     conn.close()
     return row["total_pnl"] if row else 0.0
+
+
+# ── Agent Performance Stats ──────────────────────────────────────────────────
+
+def get_agent_stats():
+    """
+    Return per-agent accuracy stats derived from logged decisions vs. trade outcomes.
+    For each agent, counts how many signals match the final trade action (LONG/BULLISH,
+    SHORT/BEARISH, HOLD/NEUTRAL) and computes an accuracy rate.
+    """
+    conn = get_conn()
+
+    # Pull all decisions joined to trades on same ticker within 5 minutes
+    rows = conn.execute("""
+        SELECT
+            d.agent_name,
+            d.signal,
+            d.confidence,
+            t.action,
+            t.pnl
+        FROM decisions d
+        INNER JOIN trades t
+          ON d.ticker = t.ticker
+         AND ABS(
+               (julianday(d.created_at) - julianday(t.created_at)) * 1440
+             ) <= 5
+        WHERE t.pnl IS NOT NULL
+        ORDER BY d.agent_name, d.created_at DESC
+    """).fetchall()
+
+    stats = {}
+    for row in rows:
+        agent      = row["agent_name"]
+        signal     = (row["signal"] or "").upper()
+        action     = (row["action"] or "").upper()
+        confidence = row["confidence"] or 0.0
+        pnl        = row["pnl"] or 0.0
+
+        # Normalise: BULLISH → LONG, BEARISH → SHORT, NEUTRAL → HOLD
+        sig_norm = "LONG" if signal in ("BULLISH", "LONG") else \
+                   "SHORT" if signal in ("BEARISH", "SHORT") else "HOLD"
+        act_norm = "LONG" if action == "LONG" else \
+                   "SHORT" if action == "SHORT" else "HOLD"
+
+        if agent not in stats:
+            stats[agent] = {
+                "agent_name":    agent,
+                "total_signals": 0,
+                "aligned":       0,       # signal matched trade action
+                "profitable":    0,       # aligned AND trade was profitable
+                "avg_confidence": 0.0,
+                "total_pnl":     0.0,
+                "confidence_sum": 0.0,
+            }
+
+        stats[agent]["total_signals"] += 1
+        stats[agent]["confidence_sum"] += confidence
+        stats[agent]["total_pnl"]     += pnl
+
+        if sig_norm == act_norm:
+            stats[agent]["aligned"] += 1
+            if pnl > 0:
+                stats[agent]["profitable"] += 1
+
+    conn.close()
+
+    result = []
+    for agent, s in stats.items():
+        n   = s["total_signals"]
+        aln = s["aligned"]
+        prft = s["profitable"]
+        result.append({
+            "agent_name":       agent,
+            "total_signals":    n,
+            "alignment_rate":   round(aln / n, 3) if n else 0.0,
+            "win_rate":         round(prft / aln, 3) if aln else 0.0,
+            "avg_confidence":   round(s["confidence_sum"] / n, 3) if n else 0.0,
+            "total_pnl":        round(s["total_pnl"], 2),
+        })
+
+    # Sort by alignment_rate descending
+    result.sort(key=lambda x: x["alignment_rate"], reverse=True)
+    return result
+
+
+def get_daily_stats(days: int = 30):
+    """Return daily stats for the last N days."""
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT date, total_pnl, trades_count, wins, losses
+           FROM daily_stats
+           ORDER BY date DESC
+           LIMIT ?""",
+        (days,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
