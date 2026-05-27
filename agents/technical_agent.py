@@ -111,7 +111,7 @@ Respond with JSON only:
   "entry_zone": {{"low": <number_or_null>, "high": <number_or_null>}},
   "reasoning": "step-by-step: trend first, then momentum, then structure, then volume — cite specific values"
 }}"""
-        raw = self._call(prompt, max_tokens=600)
+        raw = self._call(prompt, max_tokens=1024)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result

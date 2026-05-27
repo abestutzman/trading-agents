@@ -79,7 +79,7 @@ Respond with JSON only:
   "headline_count_analyzed": {len(news[:5])},
   "reasoning": "step-by-step: headlines first, then insider data, then quantitative metrics, then overall conclusion"
 }}"""
-        raw = self._call(prompt, max_tokens=600)
+        raw = self._call(prompt, max_tokens=1024)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result

@@ -937,22 +937,27 @@ def _render_analysis_result(result: dict):
     if news:
         st.markdown("### Headlines (fed to Sentiment Agent)")
         for n in news[:5]:
-            dt_raw = n.get("datetime", "")
-            if isinstance(dt_raw, int):
-                try:
-                    dt_str = datetime.utcfromtimestamp(dt_raw).strftime("%Y-%m-%d")
-                except (OSError, OverflowError, ValueError):
-                    dt_str = ""
-            else:
-                dt_str = str(dt_raw)[:10]
-            st.markdown(
-                f'<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">'
-                f'<span style="font-size:11px;color:#64748b;font-weight:600;">'
-                f'{n.get("source","?")} &nbsp;·&nbsp; {dt_str}</span><br>'
-                f'<span style="font-size:13px;color:#0f172a;">{n.get("headline","")}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
+            if not isinstance(n, dict):
+                continue
+            try:
+                dt_raw = n.get("datetime", "")
+                if isinstance(dt_raw, int):
+                    try:
+                        dt_str = datetime.utcfromtimestamp(dt_raw).strftime("%Y-%m-%d")
+                    except (OSError, OverflowError, ValueError):
+                        dt_str = ""
+                else:
+                    dt_str = str(dt_raw)[:10]
+                st.markdown(
+                    f'<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">'
+                    f'<span style="font-size:11px;color:#64748b;font-weight:600;">'
+                    f'{n.get("source","?")} &nbsp;·&nbsp; {dt_str}</span><br>'
+                    f'<span style="font-size:13px;color:#0f172a;">{n.get("headline","")}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            except Exception:
+                continue
 
 
 # ══════════════════════════════════════════════════════════════════════════════

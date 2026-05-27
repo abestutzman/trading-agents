@@ -65,7 +65,7 @@ Respond with JSON only:
   "event_risk": "high" | "medium" | "low",
   "reasoning": "step-by-step explanation: first assess rates/inflation, then growth signals, then market sentiment, then conclude"
 }}"""
-        raw = self._call(prompt, max_tokens=600)
+        raw = self._call(prompt, max_tokens=1024)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result

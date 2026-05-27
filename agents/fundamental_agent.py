@@ -99,7 +99,7 @@ Respond with JSON only:
   "key_weaknesses": ["wk1", "wk2"],
   "reasoning": "step-by-step: valuation ratios first, then balance sheet health, then growth quality, then conclude"
 }}"""
-        raw = self._call(prompt, max_tokens=600)
+        raw = self._call(prompt, max_tokens=1024)
         result = self._parse_json(raw)
         result["agent"] = self.name
         return result
